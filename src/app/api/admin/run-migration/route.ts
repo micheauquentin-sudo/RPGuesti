@@ -20,8 +20,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // Supabase cert chain fix
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+  const cleanUrl = connectionString.split('?')[0];
   const client = new pg.Client({
-    connectionString,
+    connectionString: cleanUrl,
     ssl: { rejectUnauthorized: false },
   });
 
