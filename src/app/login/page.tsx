@@ -130,13 +130,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo & Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1c1f2e] to-[#0f1118] border border-[#2a2f45] mb-4 shadow-xl">
-            <Sparkles className="w-8 h-8 text-[#e5b85c]" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/astra-logo.png"
+            alt="ASTRA Logo Officiel"
+            className="w-24 h-24 sm:w-28 sm:h-28 mx-auto mb-3 object-contain drop-shadow-[0_10px_25px_rgba(229,184,92,0.25)]"
+          />
           <h1 className="text-3xl font-black tracking-widest text-white uppercase font-sans">
             ASTRA
           </h1>
-          <p className="text-xs uppercase tracking-widest text-gray-400 mt-1">
+          <p className="text-xs uppercase tracking-widest text-[#e5b85c] font-bold mt-1">
             Club Privé — Orléans • Espace RP, Staff & Admin
           </p>
         </div>

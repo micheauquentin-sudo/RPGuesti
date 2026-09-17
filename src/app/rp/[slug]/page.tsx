@@ -137,39 +137,44 @@ export default function PromoterPublicPage({
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Header ASTRA + RP */}
+        {/* Header Official ASTRA Logo + RP */}
         <div className="text-center mb-6">
-          {promoter.avatar_url ? (
-            <div className="relative inline-block mb-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <div className="flex flex-col items-center justify-center mb-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/astra-logo.png"
+              alt="ASTRA Logo Officiel"
+              className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_10px_25px_rgba(229,184,92,0.25)] mb-1 animate-in fade-in zoom-in-95 duration-500"
+            />
+            <h1 className="text-2xl sm:text-3xl font-black tracking-widest text-white uppercase">
+              ASTRA
+            </h1>
+            <p className="text-[11px] uppercase tracking-widest text-[#e5b85c] font-bold">
+              Club Privé — Orléans
+            </p>
+          </div>
+
+          {/* Badges RP Inviteur */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-[#121522] border border-[#232738] text-xs shadow-lg">
+            {promoter.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={promoter.avatar_url}
                 alt={`${promoter.first_name} ${promoter.last_name}`}
-                className="w-16 h-16 rounded-full object-cover border-2 border-[#e5b85c] shadow-xl mx-auto"
+                className="w-8 h-8 rounded-full object-cover border border-[#e5b85c]"
               />
-              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-[#08090d] rounded-full" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#1b1f2e] border border-[#2e354c] flex items-center justify-center text-[#e5b85c] font-black text-xs">
+                {promoter.first_name.charAt(0)}{promoter.last_name.charAt(0)}
+              </div>
+            )}
+            <div className="text-left">
+              <span className="text-gray-400 block text-[10px] uppercase font-semibold">Pass RP Officiel</span>
+              <span className="text-white font-bold">{promoter.first_name} {promoter.last_name}</span>
             </div>
-          ) : (
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0f1118] border border-[#232738] mb-3 shadow-xl">
-              <Sparkles className="w-7 h-7 text-[#e5b85c]" />
-            </div>
-          )}
-          <h1 className="text-2xl font-black tracking-widest text-white uppercase">
-            ASTRA
-          </h1>
-          <p className="text-[11px] uppercase tracking-widest text-[#e5b85c] font-semibold">
-            Club Privé — Orléans
-          </p>
-
-          {/* Badges RP */}
-          <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#151822] border border-[#232738] text-xs">
-            <UserCheck className="w-3.5 h-3.5 text-[#e5b85c]" />
-            <span className="text-gray-300 font-medium">
-              Invité par <strong className="text-white">{promoter.first_name} {promoter.last_name}</strong>
-            </span>
             {promoter.instagram_handle && (
               <span className="text-gray-500 flex items-center gap-1 border-l border-gray-700 pl-2">
-                <InstagramIcon className="w-3 h-3" />
+                <InstagramIcon className="w-3 h-3 text-[#e5b85c]" />
                 @{promoter.instagram_handle}
               </span>
             )}
@@ -180,9 +185,17 @@ export default function PromoterPublicPage({
         {currentEvent ? (
           <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
             {/* BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ */}
-            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
-              <Sparkles className="w-4 h-4 text-black shrink-0" />
-              <span>ENTRÉE 100% GRATUITE • PASS INVITÉ COUPE-FILE</span>
+            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-3.5 px-4 text-center font-black shadow-[0_0_25px_rgba(16,185,129,0.35)] flex flex-col items-center justify-center gap-1 border-b-2 border-emerald-300">
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-black shrink-0 animate-pulse" />
+                <span className="text-xs sm:text-sm font-black tracking-widest uppercase">
+                  ENTRÉE 100% GRATUITE
+                </span>
+                <Sparkles className="w-4 h-4 text-black shrink-0 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-black text-emerald-300 px-3 py-0.5 rounded-full">
+                PASS INVITÉ COUPE-FILE
+              </span>
             </div>
 
             {/* Event Poster if available */}
@@ -196,9 +209,13 @@ export default function PromoterPublicPage({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-transparent" />
                 <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
-                    SOIRÉE OFFICIELLE
-                  </span>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-[#e5b85c]/40 shadow">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/astra-logo.png" alt="ASTRA" className="w-3.5 h-3.5 object-contain" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#e5b85c]">
+                      ASTRA CLUB
+                    </span>
+                  </div>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500 text-black shadow">
                     100% Gratuit
                   </span>
@@ -212,7 +229,7 @@ export default function PromoterPublicPage({
                 {currentEvent.name}
               </h2>
 
-              <div className="space-y-1.5 mb-6 text-sm text-gray-300">
+              <div className="space-y-1.5 mb-5 text-sm text-gray-300">
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-[#e5b85c]" />
                   <span className="capitalize">{formatFrenchDate(currentEvent.event_date)}</span>
@@ -223,8 +240,18 @@ export default function PromoterPublicPage({
                 </div>
               </div>
 
+              {/* CONSIGNE D'ARRIVÉE AU CLUB BIEN EN GROS */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#e5b85c]/20 via-[#e5b85c]/10 to-[#e5b85c]/20 border border-[#e5b85c]/50 text-center mb-5 shadow-sm">
+                <p className="text-[10px] font-black uppercase text-[#e5b85c] tracking-widest mb-1">
+                  ⚠️ CONSIGNE À L&apos;ARRIVÉE
+                </p>
+                <p className="text-xs sm:text-sm font-black text-white uppercase tracking-tight">
+                  DEMANDEZ UNE ENTRÉE ASTRA À L&apos;ARRIVÉE AU CLUB
+                </p>
+              </div>
+
               {currentEvent.description && (
-                <p className="text-xs text-gray-400 mb-6 line-clamp-2 bg-[#141622] p-3 rounded-xl border border-[#202434]">
+                <p className="text-xs text-gray-400 mb-5 line-clamp-2 bg-[#141622] p-3 rounded-xl border border-[#202434]">
                   {currentEvent.description}
                 </p>
               )}
@@ -270,7 +297,7 @@ export default function PromoterPublicPage({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full mt-4 py-3.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-extrabold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-sm uppercase tracking-wider active:scale-98"
+                  className="w-full mt-4 py-4 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-black rounded-xl transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-sm uppercase tracking-wider active:scale-98"
                 >
                   {submitting ? (
                     <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent" />
@@ -284,7 +311,7 @@ export default function PromoterPublicPage({
               </form>
 
               <p className="text-[11px] text-center text-gray-500 mt-4">
-                Génération instantanée de votre QR code • Entrée gratuite garantie
+                Billet nominatif officiel • Entrée 100% gratuite garantie
               </p>
             </div>
           </div>

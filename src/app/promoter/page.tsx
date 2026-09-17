@@ -290,7 +290,7 @@ export default function PromoterDashboardPage() {
 
   const handleCopyInstaText = () => {
     const eventText = upcomingEvent ? ` pour la soirée ${upcomingEvent.name}` : '';
-    const textToCopy = `🎟️ Mon Pass Invité officiel ASTRA${eventText} est disponible ! Entrée 100% GRATUITE avec mon lien personnel : ${promoterPublicUrl} (Fais bien scanner ton QR code à l'entrée par les videurs). Places limitées !`;
+    const textToCopy = `🎟️ Mon Pass Invité officiel ASTRA${eventText} est disponible ! Entrée 100% GRATUITE avec mon lien personnel : ${promoterPublicUrl}\n\n⚠️ IMPORTANT : À ton arrivée, demande bien UNE ENTRÉE ASTRA, puis fais scanner ce pass par ton RP ou directement dans le club après avoir pris ton entrée gratuite. Places limitées !`;
     navigator.clipboard.writeText(textToCopy);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
@@ -300,7 +300,7 @@ export default function PromoterDashboardPage() {
     if (!promoter) return;
     const eventName = upcomingEvent ? ` pour la soirée "${upcomingEvent.name}"` : '';
     const msg = encodeURIComponent(
-      `Salut ! Je t'invite au club ASTRA à Orléans${eventName} ! Ton entrée est 100% GRATUITE avec mon pass invité RP. Récupère ton QR code personnel ici : ${promoterPublicUrl}\n\n⚠️ IMPORTANT : Fais bien scanner ton QR code à la porte par les videurs pour valider ton entrée gratuite !`
+      `Salut ! Je t'invite au club ASTRA à Orléans${eventName} ! Ton entrée est 100% GRATUITE avec mon pass invité RP. Récupère ton billet officiel ici : ${promoterPublicUrl}\n\n⚠️ IMPORTANT : À ton arrivée au club, demande bien UNE ENTRÉE ASTRA, puis fais scanner ce pass par un de tes RP ou directement dans l'ASTRA après avoir pris ton entrée gratuite !`
     );
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   };
@@ -308,7 +308,7 @@ export default function PromoterDashboardPage() {
   const shareViaSms = () => {
     if (!promoter) return;
     const msg = encodeURIComponent(
-      `Salut ! Ton entrée pour le club ASTRA est 100% GRATUITE avec mon pass RP. Télécharge ton QR code ici : ${promoterPublicUrl} (à faire scanner à l'entrée !)`
+      `Salut ! Ton entrée pour le club ASTRA est 100% GRATUITE avec mon pass RP. Télécharge ton billet ici : ${promoterPublicUrl} (Demande UNE ENTRÉE ASTRA à ton arrivée puis fais scanner ton pass par ton RP ou dans l'ASTRA !)`
     );
     window.open(`sms:?body=${msg}`, '_blank');
   };
@@ -392,23 +392,31 @@ export default function PromoterDashboardPage() {
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 text-center sm:text-left">
           <div className="flex flex-col sm:flex-row items-center gap-5">
-            {/* Avatar */}
-            <div className="relative">
-              {promoter.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={promoter.avatar_url}
-                  alt={`${promoter.first_name} ${promoter.last_name}`}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-[#e5b85c] shadow-lg"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-[#171a25] border-2 border-[#2b3145] flex items-center justify-center shadow-lg text-white font-black text-2xl">
-                  {promoter.first_name.charAt(0)}{promoter.last_name.charAt(0)}
-                </div>
-              )}
-              <span className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#e5b85c] text-black shadow">
-                RP VIP
-              </span>
+            {/* Logo Officiel ASTRA & Avatar RP */}
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/astra-logo.png"
+                alt="ASTRA Logo Officiel"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_16px_rgba(229,184,92,0.2)] shrink-0"
+              />
+              <div className="relative">
+                {promoter.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={promoter.avatar_url}
+                    alt={`${promoter.first_name} ${promoter.last_name}`}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#e5b85c] shadow-lg"
+                  />
+                ) : (
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#171a25] border-2 border-[#2b3145] flex items-center justify-center shadow-lg text-white font-black text-2xl">
+                    {promoter.first_name.charAt(0)}{promoter.last_name.charAt(0)}
+                  </div>
+                )}
+                <span className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#e5b85c] text-black shadow">
+                  RP VIP
+                </span>
+              </div>
             </div>
 
             <div>
@@ -456,7 +464,7 @@ export default function PromoterDashboardPage() {
               <span className="text-[#e5b85c]">• Inscription ≠ Entrée</span>
             </p>
             <p className="text-gray-400 text-[11px] mt-0.5">
-              Seules les personnes qui sont <strong className="text-white">réellement entrées dans le club</strong> et dont le QR a été scanné à la porte rapportent des points.
+              Seules les personnes qui sont <strong className="text-white">réellement entrées dans le club</strong> et dont le pass a été scanné par un RP ou dans l&apos;ASTRA rapportent des points.
             </p>
           </div>
         </div>

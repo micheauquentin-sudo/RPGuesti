@@ -53,8 +53,9 @@ export default function AdminLayout({
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-[#0f1118] border-b border-[#1d212f] sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#1a1d2b] border border-[#2c3248] flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-[#e5b85c]" />
+          <div className="w-8 h-8 rounded-lg bg-black border border-[#2c3248] flex items-center justify-center p-0.5 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/astra-logo.png" alt="ASTRA" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-black tracking-widest text-sm uppercase text-white">ASTRA</span>
@@ -79,8 +80,9 @@ export default function AdminLayout({
         <div>
           {/* Brand Logo */}
           <div className="p-6 border-b border-[#1a1d29] hidden md:flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1a1d2b] to-[#0c0d14] border border-[#2c3248] flex items-center justify-center shadow-lg">
-              <Sparkles className="w-5 h-5 text-[#e5b85c]" />
+            <div className="w-11 h-11 rounded-xl bg-black border border-[#2c3248] flex items-center justify-center shadow-lg p-0.5 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/astra-logo.png" alt="ASTRA" className="w-full h-full object-contain" />
             </div>
             <div>
               <h1 className="font-black tracking-widest text-lg uppercase text-white">ASTRA</h1>

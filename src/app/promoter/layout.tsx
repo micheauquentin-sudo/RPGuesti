@@ -25,8 +25,9 @@ export default function PromoterLayout({
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 bg-[#0c0d14]/90 backdrop-blur-md border-b border-[#1c202d] px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1a1d2b] to-[#0c0d14] border border-[#2c3248] flex items-center justify-center shadow-lg">
-            <Sparkles className="w-4 h-4 text-[#e5b85c]" />
+          <div className="w-10 h-10 rounded-xl bg-black border border-[#2c3248] flex items-center justify-center shadow-lg p-0.5 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/astra-logo.png" alt="ASTRA" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">

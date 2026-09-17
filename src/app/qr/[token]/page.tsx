@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/client';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
-import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium, XCircle } from 'lucide-react';
+import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium, XCircle, Share2, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RegistrationDetail {
@@ -29,6 +29,298 @@ interface RegistrationDetail {
   };
 }
 
+// Helper pour charger une image dans le Canvas
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+}
+
+// Helper pour dessiner un rectangle avec coins arrondis
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+// Générateur du billet VIP complet haute définition
+async function generateFullTicketImage(
+  registration: RegistrationDetail,
+  qrCanvas: HTMLCanvasElement
+): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 900;
+  canvas.height = 1460;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Impossible d’initialiser le moteur graphique.');
+
+  // 1. Fond Club Sombre et Luxueux
+  ctx.fillStyle = '#08090d';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Lueur dorée douce au centre
+  const glowGrad = ctx.createRadialGradient(450, 380, 80, 450, 380, 600);
+  glowGrad.addColorStop(0, 'rgba(229, 184, 92, 0.09)');
+  glowGrad.addColorStop(1, 'rgba(8, 9, 13, 0)');
+  ctx.fillStyle = glowGrad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 2. Double Cadre Doré et Graphite
+  ctx.strokeStyle = '#e5b85c';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(20, 20, 860, 1420);
+
+  ctx.strokeStyle = '#232738';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(28, 28, 844, 1404);
+
+  // Coins stylisés VIP
+  const cornerSize = 28;
+  ctx.strokeStyle = '#e5b85c';
+  ctx.lineWidth = 4;
+  // Haut gauche
+  ctx.beginPath();
+  ctx.moveTo(14, 14 + cornerSize);
+  ctx.lineTo(14, 14);
+  ctx.lineTo(14 + cornerSize, 14);
+  ctx.stroke();
+  // Haut droite
+  ctx.beginPath();
+  ctx.moveTo(886 - cornerSize, 14);
+  ctx.lineTo(886, 14);
+  ctx.lineTo(886, 14 + cornerSize);
+  ctx.stroke();
+  // Bas gauche
+  ctx.beginPath();
+  ctx.moveTo(14, 1446 - cornerSize);
+  ctx.lineTo(14, 1446);
+  ctx.lineTo(14 + cornerSize, 1446);
+  ctx.stroke();
+  // Bas droite
+  ctx.beginPath();
+  ctx.moveTo(886 - cornerSize, 1446);
+  ctx.lineTo(886, 1446);
+  ctx.lineTo(886, 1446 - cornerSize);
+  ctx.stroke();
+
+  // 3. Dessin du Logo Officiel 3D ASTRA
+  try {
+    const logoImg = await loadImage('/astra-logo.png');
+    ctx.drawImage(logoImg, 385, 45, 130, 130);
+  } catch (err) {
+    console.warn('Logo ASTRA local non chargé, fallback texte', err);
+  }
+
+  // Typo ASTRA Club
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 24px system-ui, -apple-system, sans-serif';
+  ctx.fillText('A S T R A', 450, 205);
+
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+  ctx.fillText('CLUB PRIVÉ • ORLÉANS', 450, 226);
+
+  // 4. BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ
+  const bannerY = 246;
+  const emeraldGrad = ctx.createLinearGradient(45, bannerY, 855, bannerY);
+  emeraldGrad.addColorStop(0, '#059669');
+  emeraldGrad.addColorStop(0.5, '#10b981');
+  emeraldGrad.addColorStop(1, '#059669');
+  ctx.fillStyle = emeraldGrad;
+  drawRoundedRect(ctx, 45, bannerY, 810, 68, 16);
+  ctx.fill();
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '900 23px system-ui, -apple-system, sans-serif';
+  ctx.fillText('★ ENTRÉE 100% GRATUITE • BILLET INVITÉ ★', 450, bannerY + 43);
+
+  // 5. Affiche ou Bloc Soirée
+  let currentY = 330;
+  if (registration.event.cover_image_url) {
+    try {
+      const posterImg = await loadImage(registration.event.cover_image_url);
+      ctx.save();
+      drawRoundedRect(ctx, 45, currentY, 810, 220, 16);
+      ctx.clip();
+      ctx.drawImage(posterImg, 45, currentY, 810, 220);
+
+      // Dégradé sombre par-dessus l'affiche pour contraste
+      const posterGrad = ctx.createLinearGradient(45, currentY + 70, 45, currentY + 220);
+      posterGrad.addColorStop(0, 'rgba(15, 17, 24, 0.2)');
+      posterGrad.addColorStop(1, 'rgba(15, 17, 24, 0.96)');
+      ctx.fillStyle = posterGrad;
+      ctx.fillRect(45, currentY, 810, 220);
+      ctx.restore();
+
+      // Cadre affiche
+      ctx.strokeStyle = '#232738';
+      ctx.lineWidth = 2;
+      drawRoundedRect(ctx, 45, currentY, 810, 220, 16);
+      ctx.stroke();
+
+      // Titre soirée
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 24px system-ui, -apple-system, sans-serif';
+      ctx.fillText(registration.event.name, 450, currentY + 175);
+
+      // Date & Horaires
+      ctx.fillStyle = '#e5b85c';
+      ctx.font = 'bold 15px system-ui, -apple-system, sans-serif';
+      const eventDateStr = formatFrenchDate(registration.event.event_date).toUpperCase();
+      const eventTimeStr = `${formatFrenchTime(registration.event.start_time)} → ${formatFrenchTime(registration.event.end_time)}`;
+      ctx.fillText(`📅 ${eventDateStr}  •  ⏰ ${eventTimeStr}`, 450, currentY + 202);
+
+      currentY += 236;
+    } catch {
+      // Fallback
+      currentY = drawFallbackPoster(ctx, registration, currentY);
+    }
+  } else {
+    currentY = drawFallbackPoster(ctx, registration, currentY);
+  }
+
+  // 6. Bloc Invité & RP
+  const infoY = currentY;
+  ctx.fillStyle = '#121522';
+  drawRoundedRect(ctx, 45, infoY, 810, 80, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#232738';
+  ctx.lineWidth = 1.5;
+  drawRoundedRect(ctx, 45, infoY, 810, 80, 14);
+  ctx.stroke();
+
+  // Séparateur vertical
+  ctx.strokeStyle = '#232738';
+  ctx.beginPath();
+  ctx.moveTo(450, infoY + 12);
+  ctx.lineTo(450, infoY + 68);
+  ctx.stroke();
+
+  // Invité
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+  ctx.fillText('INVITÉ(E) NOMINATIF', 68, infoY + 30);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 20px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`${registration.guest.first_name} ${registration.guest.last_name}`, 68, infoY + 58);
+
+  // RP
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+  ctx.fillText('INVITATION PAR LE RP', 475, infoY + 30);
+
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = '900 20px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`${registration.promoter.first_name} ${registration.promoter.last_name}`, 475, infoY + 58);
+
+  currentY += 96;
+
+  // 7. Carte Blanche QR Code Haute Définition
+  const qrBoxY = currentY;
+  const qrBoxWidth = 310;
+  const qrBoxHeight = 310;
+  const qrBoxX = (canvas.width - qrBoxWidth) / 2;
+
+  ctx.fillStyle = '#ffffff';
+  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxWidth, qrBoxHeight, 22);
+  ctx.fill();
+
+  ctx.strokeStyle = '#e5b85c';
+  ctx.lineWidth = 4;
+  drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxWidth, qrBoxHeight, 22);
+  ctx.stroke();
+
+  // Dessin du QR Code
+  ctx.drawImage(qrCanvas, qrBoxX + 15, qrBoxY + 15, 280, 280);
+
+  currentY += qrBoxHeight + 20;
+
+  // 8. GROSSE CONSIGNE OBLIGATOIRE D'ARRIVÉE AU CLUB
+  const instrY = currentY;
+  const instrBoxHeight = 145;
+  ctx.fillStyle = '#141724';
+  drawRoundedRect(ctx, 45, instrY, 810, instrBoxHeight, 16);
+  ctx.fill();
+
+  ctx.strokeStyle = '#e5b85c';
+  ctx.lineWidth = 2.5;
+  drawRoundedRect(ctx, 45, instrY, 810, instrBoxHeight, 16);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = '900 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText('⚠️  CONSIGNE OBLIGATOIRE À VOTRE ARRIVÉE  ⚠️', 450, instrY + 30);
+
+  // Gros texte impératif
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 21px system-ui, -apple-system, sans-serif';
+  ctx.fillText("DEMANDEZ UNE ENTRÉE ASTRA À L'ARRIVÉE AU CLUB", 450, instrY + 68);
+
+  // Sous-texte
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
+  ctx.fillText("Faites scanner ce pass par un de vos RP ou directement dans l'ASTRA", 450, instrY + 102);
+  ctx.fillText("après avoir pris votre entrée gratuite.", 450, instrY + 124);
+
+  // 9. Pied de Page Billet Officiel
+  ctx.fillStyle = '#64748b';
+  ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+  ctx.fillText('ASTRA CLUB ORLÉANS • BILLET OFFICIEL NOMINATIF NUMÉRISÉ', 450, 1416);
+
+  return canvas.toDataURL('image/png');
+}
+
+function drawFallbackPoster(
+  ctx: CanvasRenderingContext2D,
+  registration: RegistrationDetail,
+  currentY: number
+): number {
+  ctx.fillStyle = '#10131c';
+  drawRoundedRect(ctx, 45, currentY, 810, 110, 16);
+  ctx.fill();
+  ctx.strokeStyle = '#232738';
+  ctx.lineWidth = 1.5;
+  drawRoundedRect(ctx, 45, currentY, 810, 110, 16);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 22px system-ui, -apple-system, sans-serif';
+  ctx.fillText(registration.event.name, 450, currentY + 45);
+
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
+  const eventDateStr = formatFrenchDate(registration.event.event_date).toUpperCase();
+  const eventTimeStr = `${formatFrenchTime(registration.event.start_time)} → ${formatFrenchTime(registration.event.end_time)}`;
+  ctx.fillText(`📅 ${eventDateStr}  •  ⏰ ${eventTimeStr}`, 450, currentY + 78);
+
+  return currentY + 126;
+}
+
 export default function GuestQrPassPage({
   params,
 }: {
@@ -41,6 +333,8 @@ export default function GuestQrPassPage({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qrGenerated, setQrGenerated] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   useEffect(() => {
     async function loadRegistration() {
@@ -68,7 +362,6 @@ export default function GuestQrPassPage({
           return;
         }
 
-        // Supabase typage join
         const regDetail: RegistrationDetail = {
           id: data.id,
           qr_token: data.qr_token,
@@ -106,7 +399,6 @@ export default function GuestQrPassPage({
   useEffect(() => {
     if (!registration || !canvasRef.current) return;
 
-    // Le QR code contient le token (ou une URL de check-in sécurisée)
     const qrData = `${typeof window !== 'undefined' ? window.location.origin : ''}/check-in/${registration.qr_token}`;
 
     QRCode.toCanvas(
@@ -134,17 +426,42 @@ export default function GuestQrPassPage({
   const isEventExpired = (() => {
     if (!registration?.event?.event_date) return false;
     const [year, month, day] = registration.event.event_date.split('-').map(Number);
-    // La soirée club du jour D se termine au plus tard le lendemain matin à 12h00
     const expiryTime = new Date(year, month - 1, day + 1, 12, 0, 0);
     return new Date() > expiryTime;
   })();
 
-  const handleDownload = () => {
-    if (!canvasRef.current || !registration || isEventExpired) return;
-    const link = document.createElement('a');
-    link.download = `ASTRA-PASS-${registration.guest.last_name.toUpperCase()}.png`;
-    link.href = canvasRef.current.toDataURL('image/png');
-    link.click();
+  // Téléchargement du Billet VIP Complet (Pas seulement le QR Code !)
+  const handleDownloadFullTicket = async () => {
+    if (!canvasRef.current || !registration || isEventExpired || downloading) return;
+
+    try {
+      setDownloading(true);
+      const ticketImageDataUrl = await generateFullTicketImage(registration, canvasRef.current);
+
+      const link = document.createElement('a');
+      const sanitizedName = `${registration.guest.first_name}-${registration.guest.last_name}`
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '_');
+      link.download = `BILLET-OFFICIEL-ASTRA-${sanitizedName}.png`;
+      link.href = ticketImageDataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+    } catch (err) {
+      console.error('Erreur lors de la génération du billet complet :', err);
+      // Fallback au QR code si échec
+      if (canvasRef.current) {
+        const link = document.createElement('a');
+        link.download = `ASTRA-PASS-${registration.guest.last_name.toUpperCase()}.png`;
+        link.href = canvasRef.current.toDataURL('image/png');
+        link.click();
+      }
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading) {
@@ -182,37 +499,52 @@ export default function GuestQrPassPage({
         <div className="bg-[#0f1118] border border-[#232738] rounded-3xl overflow-hidden shadow-2xl relative">
           {/* BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ */}
           {!isEventExpired ? (
-            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
-              <Sparkles className="w-4 h-4 text-black shrink-0" />
-              <span>BILLET COUPE-FILE • ENTRÉE 100% GRATUITE</span>
+            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-3.5 px-4 text-center font-black shadow-[0_0_20px_rgba(16,185,129,0.35)] flex flex-col items-center justify-center gap-1 border-b-2 border-emerald-300">
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-black shrink-0 animate-pulse" />
+                <span className="text-xs sm:text-sm font-black tracking-widest uppercase">
+                  ENTRÉE 100% GRATUITE
+                </span>
+                <Sparkles className="w-4 h-4 text-black shrink-0 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-black text-emerald-300 px-3 py-0.5 rounded-full">
+                BILLET OFFICIEL • COUPE-FILE
+              </span>
             </div>
           ) : (
-            <div className="bg-rose-600/90 text-white py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
+            <div className="bg-rose-600/90 text-white py-3 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
               <AlertCircle className="w-4 h-4 text-white shrink-0" />
               <span>SOIRÉE PASSÉE • BILLET EXPIRÉ</span>
             </div>
           )}
 
-          {/* Event Poster Banner */}
+          {/* Event Poster Banner & Official Logo */}
           {registration.event.cover_image_url ? (
-            <div className="relative h-48 w-full overflow-hidden border-b border-[#232738]">
+            <div className="relative h-52 w-full overflow-hidden border-b border-[#232738]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={registration.event.cover_image_url}
                 alt={registration.event.name}
                 className={`w-full h-full object-cover object-center ${isEventExpired ? 'grayscale contrast-125 opacity-60' : ''}`}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-black/60" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-black/70" />
+              
+              {/* Top badges with Logo */}
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
-                  ASTRA CLUB
-                </span>
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-[#e5b85c]/40 shadow">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/astra-logo.png" alt="ASTRA" className="w-4 h-4 object-contain" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#e5b85c]">
+                    ASTRA CLUB
+                  </span>
+                </div>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow ${
                   isEventExpired ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-black'
                 }`}>
-                  {isEventExpired ? 'Expiré' : 'Entrée Gratuite'}
+                  {isEventExpired ? 'Expiré' : '100% Gratuit'}
                 </span>
               </div>
+
               <div className="absolute bottom-3 left-4 right-4">
                 <p className="text-[11px] font-bold text-[#e5b85c] uppercase tracking-wider">Soirée Officielle</p>
                 <h2 className="text-lg font-black text-white leading-tight drop-shadow truncate">
@@ -222,9 +554,12 @@ export default function GuestQrPassPage({
             </div>
           ) : (
             <div className="p-6 bg-gradient-to-b from-[#181b26] to-[#0f1118] border-b border-[#232738] text-center relative">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#0b0c10] border border-[#282d3f] mb-2 shadow-inner">
-                <Sparkles className="w-5 h-5 text-[#e5b85c]" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/astra-logo.png"
+                alt="ASTRA Logo"
+                className="w-16 h-16 mx-auto mb-2 object-contain drop-shadow-[0_4px_16px_rgba(229,184,92,0.25)]"
+              />
               <h1 className="text-2xl font-black tracking-widest text-white uppercase">
                 ASTRA
               </h1>
@@ -250,6 +585,18 @@ export default function GuestQrPassPage({
             </div>
           </div>
 
+          {/* GROSSE CONSIGNE OBLIGATOIRE D'ARRIVÉE AU CLUB */}
+          {!isEventExpired && (
+            <div className="mx-4 my-3 p-3.5 bg-gradient-to-r from-[#e5b85c]/25 via-[#e5b85c]/10 to-[#e5b85c]/25 border-2 border-[#e5b85c] rounded-2xl text-center shadow-lg">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#e5b85c] mb-1">
+                ⚠️ CONSIGNE OBLIGATOIRE À L&apos;ARRIVÉE
+              </p>
+              <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-tight leading-snug">
+                DEMANDEZ UNE ENTRÉE ASTRA<br />À L&apos;ARRIVÉE AU CLUB
+              </h3>
+            </div>
+          )}
+
           {/* QR Code Container ou Message Expiré */}
           {isEventExpired ? (
             <div className="p-8 flex flex-col items-center justify-center bg-[#0d0e14] text-center">
@@ -260,7 +607,7 @@ export default function GuestQrPassPage({
                 QR Code Expiré
               </p>
               <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
-                La soirée du {formatFrenchDate(registration.event.event_date)} est terminée. Ce QR code n&apos;est plus actif et ne peut plus être scanné à l&apos;entrée.
+                La soirée du {formatFrenchDate(registration.event.event_date)} est terminée. Ce QR code n&apos;est plus actif et ne peut plus être scanné.
               </p>
             </div>
           ) : (
@@ -270,10 +617,10 @@ export default function GuestQrPassPage({
               </div>
 
               <p className="text-xs font-bold text-white mt-4 tracking-wide text-center">
-                Fais scanner ce QR code à l&apos;entrée
+                Faites scanner ce QR code à un RP ou dans l&apos;ASTRA
               </p>
               <p className="text-[11px] text-gray-400 mt-1 text-center">
-                1 entrée gratuite par pass • Scan unique aux videurs
+                1 entrée gratuite par pass • Scan nominatif
               </p>
             </div>
           )}
@@ -297,24 +644,24 @@ export default function GuestQrPassPage({
             </div>
           </div>
 
-          {/* Consignes d'accès — Indispensable */}
+          {/* Consignes d'accès — Mises à jour sans mention des videurs */}
           {!isEventExpired && (
             <div className="p-4 bg-[#141622] border-t border-[#232738] space-y-2.5 text-left">
               <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4 text-[#e5b85c] shrink-0" />
-                <span>Comment utiliser ce billet ?</span>
+                <span>Comment utiliser votre pass ?</span>
               </div>
               <div className="space-y-2 text-xs text-gray-300">
                 <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   <p className="leading-snug">
-                    <strong className="text-white">Faites scanner ce pass quoi qu&apos;il arrive</strong> par les videurs ou le staff à la porte pour valider votre entrée gratuite.
+                    Faites scanner ce pass par <strong className="text-white">un de vos RP</strong> ou directement <strong className="text-[#e5b85c]">dans l&apos;ASTRA</strong> après avoir pris votre entrée gratuite.
                   </p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
                   <Sparkles className="w-4 h-4 text-[#e5b85c] shrink-0 mt-0.5" />
                   <p className="leading-snug text-gray-400">
-                    Votre entrée est <strong>100% gratuite</strong> grâce à l&apos;invitation de <strong>{registration.promoter.first_name}</strong>.
+                    Votre entrée est <strong className="text-white">100% gratuite</strong> grâce à l&apos;invitation de <strong className="text-[#e5b85c]">{registration.promoter.first_name} {registration.promoter.last_name}</strong>.
                   </p>
                 </div>
               </div>
@@ -326,19 +673,33 @@ export default function GuestQrPassPage({
         {!isEventExpired && (
           <div className="mt-3 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-2.5 text-xs text-gray-400">
             <SunMedium className="w-4 h-4 text-[#e5b85c] shrink-0" />
-            <span>Augmente la luminosité de ton écran à l&apos;entrée pour faciliter le scan.</span>
+            <span>Augmente la luminosité de ton écran pour faciliter la lecture du QR code.</span>
           </div>
         )}
 
-        {/* Bouton Sauvegarder dans la galerie */}
+        {/* Bouton Sauvegarder le Billet Complet */}
         {!isEventExpired ? (
           <button
-            onClick={handleDownload}
-            disabled={!qrGenerated}
-            className="w-full mt-3 py-3.5 px-4 bg-[#181b26] hover:bg-[#202534] border border-[#2d3246] rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98"
+            onClick={handleDownloadFullTicket}
+            disabled={!qrGenerated || downloading}
+            className="w-full mt-3 py-4 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-extrabold text-sm rounded-2xl flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xl active:scale-98 disabled:opacity-50"
           >
-            <Download className="w-4 h-4 text-[#e5b85c]" />
-            <span>Enregistrer le Pass (Image / Capture)</span>
+            {downloading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <span>Génération du Billet VIP...</span>
+              </>
+            ) : downloadSuccess ? (
+              <>
+                <Check className="w-4 h-4 text-black" />
+                <span>Billet Enregistré dans vos Photos !</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 text-black" />
+                <span>Enregistrer le Billet Complet (Image HD)</span>
+              </>
+            )}
           </button>
         ) : (
           <button
@@ -350,10 +711,13 @@ export default function GuestQrPassPage({
           </button>
         )}
 
-        <p className="text-center text-[10px] text-gray-500 mt-4">
-          ASTRA Club Orléans • Billet officiel nominatif vérifié
-        </p>
+        <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-gray-500">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/astra-logo.png" alt="ASTRA" className="w-3.5 h-3.5 object-contain" />
+          <span>ASTRA Club Orléans • Billet officiel nominatif vérifié</span>
+        </div>
       </div>
     </div>
   );
 }
+

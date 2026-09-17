@@ -8,15 +8,18 @@ export default function HomePage() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 max-w-lg w-full">
-        {/* ASTRA Brand */}
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-[#1b1e2c] to-[#0e1017] border border-[#2b3046] mb-6 shadow-2xl">
-          <Sparkles className="w-10 h-10 text-[#e5b85c]" />
-        </div>
+        {/* ASTRA Official Brand */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/astra-logo.png"
+          alt="ASTRA Logo Officiel"
+          className="w-28 h-28 sm:w-36 sm:h-36 mx-auto mb-4 object-contain drop-shadow-[0_12px_30px_rgba(229,184,92,0.3)]"
+        />
 
-        <h1 className="text-4xl sm:text-5xl font-black tracking-widest text-white uppercase mb-3">
+        <h1 className="text-4xl sm:text-5xl font-black tracking-widest text-white uppercase mb-2">
           ASTRA
         </h1>
-        <p className="text-sm font-semibold tracking-widest text-[#e5b85c] uppercase mb-4">
+        <p className="text-sm font-bold tracking-widest text-[#e5b85c] uppercase mb-4">
           Club Privé — Orléans
         </p>
         <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm mx-auto">

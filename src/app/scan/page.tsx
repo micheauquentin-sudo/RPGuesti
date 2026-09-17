@@ -234,8 +234,9 @@ export default function MobileScannerPage() {
           <span>Admin</span>
         </Link>
 
-        <div className="flex items-center gap-1 text-center">
-          <Sparkles className="w-3.5 h-3.5 text-[#e5b85c]" />
+        <div className="flex items-center gap-2 text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/astra-logo.png" alt="ASTRA" className="w-5 h-5 object-contain" />
           <span className="font-black tracking-widest text-xs uppercase">ASTRA TERMINAL</span>
         </div>
 
