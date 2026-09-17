@@ -356,13 +356,17 @@ export default function MobileScannerPage() {
               </div>
             )}
 
-            {['NOT_FOUND', 'CANCELLED', 'EVENT_NOT_ACTIVE', 'ERROR'].includes(scanResult.status) && (
+            {['NOT_FOUND', 'CANCELLED', 'EVENT_NOT_ACTIVE', 'ERROR', 'EXPIRED'].includes(scanResult.status) && (
               <div className="text-center animate-in zoom-in-95 duration-150">
                 <div className="w-24 h-24 rounded-full bg-rose-500 text-black flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(244,63,94,0.8)]">
                   <XCircle className="w-16 h-16 stroke-[2.5]" />
                 </div>
                 <span className="inline-block px-4 py-1.5 rounded-full bg-rose-500 text-black font-black text-sm uppercase tracking-widest mb-3">
-                  {scanResult.status === 'CANCELLED' ? 'ENTRÉE ANNULÉE' : 'QR INVALIDE'}
+                  {scanResult.status === 'EXPIRED'
+                    ? 'SOIRÉE TERMINÉE / EXPIRÉ'
+                    : scanResult.status === 'CANCELLED'
+                    ? 'ENTRÉE ANNULÉE'
+                    : 'QR INVALIDE'}
                 </span>
                 <h1 className="text-xl font-bold text-white mb-4">
                   {scanResult.message || 'Billet non reconnu'}

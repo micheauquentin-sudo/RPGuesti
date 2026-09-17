@@ -46,8 +46,32 @@ export async function POST(request: Request) {
       scannedBy = user.id;
     }
 
-    // 3. Appel de la fonction atomique PostgreSQL
+    // 3. Vérifier si l'événement associé à ce pass a déjà expiré (soirée passée)
     const supabaseAdmin = createAdminClient();
+    const { data: regCheck } = await supabaseAdmin
+      .from('registrations')
+      .select('event:events(name, event_date, end_time, status)')
+      .eq('qr_token', qrToken)
+      .maybeSingle();
+
+    if (regCheck?.event) {
+      const ev = Array.isArray(regCheck.event) ? regCheck.event[0] : (regCheck.event as unknown as { name: string; event_date: string; end_time: string; status: string });
+      if (ev?.event_date) {
+        const [year, month, day] = ev.event_date.split('-').map(Number);
+        // La soirée se termine au plus tard le lendemain matin à 12h00
+        const expiryTime = new Date(year, month - 1, day + 1, 12, 0, 0);
+        if (new Date() > expiryTime || ev.status === 'closed' || ev.status === 'cancelled') {
+          return NextResponse.json({
+            success: false,
+            status: 'EXPIRED',
+            message: 'Cette soirée est terminée. Ce pass QR n’est plus actif.',
+            event_name: ev.name,
+          });
+        }
+      }
+    }
+
+    // 4. Appel de la fonction atomique PostgreSQL
     const { data, error } = await supabaseAdmin.rpc('check_in_guest', {
       p_qr_token: qrToken,
       p_scanned_by: scannedBy,

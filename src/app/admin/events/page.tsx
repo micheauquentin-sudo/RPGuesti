@@ -15,7 +15,9 @@ import {
   Sparkles,
   Edit3,
   Trash2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Upload,
+  X
 } from 'lucide-react';
 
 interface EventWithStats extends ClubEvent {
@@ -128,6 +130,49 @@ export default function AdminEventsPage() {
   useEffect(() => {
     loadEvents();
   }, []);
+
+  const handleFilePosterUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onSuccess: (url: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner un fichier image valide (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          onSuccess(dataUrl);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -553,11 +598,45 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Sélection ou saisie de l'Affiche */}
+              {/* Sélection ou Import de l'Affiche */}
               <div>
                 <label className="block font-semibold text-gray-300 mb-1.5">
                   Affiche de la soirée (affichée sur les billets QR des invités)
                 </label>
+
+                {/* Bouton d'import direct de fichier depuis le PC/mobile */}
+                <div className="mb-2.5">
+                  <label className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#1b1e2c] hover:bg-[#252b3d] border border-dashed border-[#e5b85c]/60 rounded-xl text-xs text-[#e5b85c] font-bold cursor-pointer transition-all shadow group">
+                    <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>📁 Importer mon affiche perso (PNG, JPG, WebP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFilePosterUpload(e, setCoverImageUrl)}
+                    />
+                  </label>
+                </div>
+
+                {/* Prévisualisation de l'affiche sélectionnée si présente */}
+                {coverImageUrl && (
+                  <div className="relative mb-2.5 h-28 rounded-xl overflow-hidden border border-[#e5b85c]/40 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={coverImageUrl} alt="Aperçu affiche" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <span className="text-[11px] font-bold text-white bg-black/70 px-2 py-1 rounded">Affiche active</span>
+                      <button
+                        type="button"
+                        onClick={() => setCoverImageUrl('')}
+                        className="px-2 py-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded text-[11px] font-bold cursor-pointer"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-gray-400 font-medium mb-1">Ou choisir parmi les thèmes ASTRA :</p>
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {POSTER_PRESETS.map((preset) => (
                     <button
@@ -566,16 +645,17 @@ export default function AdminEventsPage() {
                       onClick={() => setCoverImageUrl(preset.url)}
                       className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer h-16 ${
                         coverImageUrl === preset.url
-                          ? 'border-[#e5b85c] scale-105 shadow-md'
+                          ? 'border-[#e5b85c] scale-105 shadow-md ring-2 ring-[#e5b85c]/30'
                           : 'border-transparent opacity-60 hover:opacity-100'
                       }`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
                 <input
-                  type="url"
+                  type="text"
                   value={coverImageUrl}
                   onChange={(e) => setCoverImageUrl(e.target.value)}
                   placeholder="Ou collez une URL d'image personnalisée"
@@ -690,11 +770,45 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
-              {/* Sélection ou saisie de l'Affiche */}
+              {/* Sélection ou Import de l'Affiche */}
               <div>
                 <label className="block font-semibold text-gray-300 mb-1.5">
                   Affiche de la soirée (affichée sur les billets QR)
                 </label>
+
+                {/* Bouton d'import direct de fichier depuis le PC/mobile */}
+                <div className="mb-2.5">
+                  <label className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#1b1e2c] hover:bg-[#252b3d] border border-dashed border-[#e5b85c]/60 rounded-xl text-xs text-[#e5b85c] font-bold cursor-pointer transition-all shadow group">
+                    <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>📁 Importer une nouvelle affiche perso (PNG, JPG, WebP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFilePosterUpload(e, setEditCoverImageUrl)}
+                    />
+                  </label>
+                </div>
+
+                {/* Prévisualisation de l'affiche sélectionnée si présente */}
+                {editCoverImageUrl && (
+                  <div className="relative mb-2.5 h-28 rounded-xl overflow-hidden border border-[#e5b85c]/40 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={editCoverImageUrl} alt="Aperçu affiche" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <span className="text-[11px] font-bold text-white bg-black/70 px-2 py-1 rounded">Affiche actuelle</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditCoverImageUrl('')}
+                        className="px-2 py-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded text-[11px] font-bold cursor-pointer"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-gray-400 font-medium mb-1">Ou choisir parmi les thèmes ASTRA :</p>
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {POSTER_PRESETS.map((preset) => (
                     <button
@@ -703,16 +817,17 @@ export default function AdminEventsPage() {
                       onClick={() => setEditCoverImageUrl(preset.url)}
                       className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer h-16 ${
                         editCoverImageUrl === preset.url
-                          ? 'border-[#e5b85c] scale-105 shadow-md'
+                          ? 'border-[#e5b85c] scale-105 shadow-md ring-2 ring-[#e5b85c]/30'
                           : 'border-transparent opacity-60 hover:opacity-100'
                       }`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
                 <input
-                  type="url"
+                  type="text"
                   value={editCoverImageUrl}
                   onChange={(e) => setEditCoverImageUrl(e.target.value)}
                   placeholder="https://... URL personnalisée de l'affiche"

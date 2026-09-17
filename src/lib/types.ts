@@ -107,6 +107,7 @@ export type CheckInStatusCode =
   | 'ALREADY_USED'
   | 'CANCELLED'
   | 'EVENT_NOT_ACTIVE'
+  | 'EXPIRED'
   | 'NOT_FOUND'
   | 'ERROR';
 

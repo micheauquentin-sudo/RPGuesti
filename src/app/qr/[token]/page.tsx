@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import QRCode from 'qrcode';
 import { createClient } from '@/lib/supabase/client';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
-import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium } from 'lucide-react';
+import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium, XCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RegistrationDetail {
@@ -131,8 +131,16 @@ export default function GuestQrPassPage({
     );
   }, [registration]);
 
+  const isEventExpired = (() => {
+    if (!registration?.event?.event_date) return false;
+    const [year, month, day] = registration.event.event_date.split('-').map(Number);
+    // La soirée club du jour D se termine au plus tard le lendemain matin à 12h00
+    const expiryTime = new Date(year, month - 1, day + 1, 12, 0, 0);
+    return new Date() > expiryTime;
+  })();
+
   const handleDownload = () => {
-    if (!canvasRef.current || !registration) return;
+    if (!canvasRef.current || !registration || isEventExpired) return;
     const link = document.createElement('a');
     link.download = `ASTRA-PASS-${registration.guest.last_name.toUpperCase()}.png`;
     link.href = canvasRef.current.toDataURL('image/png');
@@ -172,22 +180,37 @@ export default function GuestQrPassPage({
       <div className="w-full max-w-sm relative z-10">
         {/* Pass Card */}
         <div className="bg-[#0f1118] border border-[#232738] rounded-3xl overflow-hidden shadow-2xl relative">
+          {/* BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ */}
+          {!isEventExpired ? (
+            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
+              <Sparkles className="w-4 h-4 text-black shrink-0" />
+              <span>BILLET COUPE-FILE • ENTRÉE 100% GRATUITE</span>
+            </div>
+          ) : (
+            <div className="bg-rose-600/90 text-white py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
+              <AlertCircle className="w-4 h-4 text-white shrink-0" />
+              <span>SOIRÉE PASSÉE • BILLET EXPIRÉ</span>
+            </div>
+          )}
+
           {/* Event Poster Banner */}
           {registration.event.cover_image_url ? (
-            <div className="relative h-44 w-full overflow-hidden border-b border-[#232738]">
+            <div className="relative h-48 w-full overflow-hidden border-b border-[#232738]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={registration.event.cover_image_url}
                 alt={registration.event.name}
-                className="w-full h-full object-cover object-center"
+                className={`w-full h-full object-cover object-center ${isEventExpired ? 'grayscale contrast-125 opacity-60' : ''}`}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-black/60" />
               <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
                   ASTRA CLUB
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/90 text-black shadow">
-                  Entrée 100% Gratuite
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow ${
+                  isEventExpired ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-black'
+                }`}>
+                  {isEventExpired ? 'Expiré' : 'Entrée Gratuite'}
                 </span>
               </div>
               <div className="absolute bottom-3 left-4 right-4">
@@ -206,7 +229,7 @@ export default function GuestQrPassPage({
                 ASTRA
               </h1>
               <p className="text-[10px] tracking-widest text-[#e5b85c] uppercase font-bold">
-                Pass Invité • Entrée Gratuite
+                Pass Invité • Entrée 100% Gratuite
               </p>
             </div>
           )}
@@ -227,19 +250,33 @@ export default function GuestQrPassPage({
             </div>
           </div>
 
-          {/* QR Code Container */}
-          <div className="p-6 flex flex-col items-center justify-center bg-[#0d0e14]">
-            <div className="p-3.5 bg-white rounded-2xl shadow-2xl flex items-center justify-center border-4 border-[#e5b85c]/30">
-              <canvas ref={canvasRef} className="rounded-lg max-w-full h-auto block" />
+          {/* QR Code Container ou Message Expiré */}
+          {isEventExpired ? (
+            <div className="p-8 flex flex-col items-center justify-center bg-[#0d0e14] text-center">
+              <div className="w-20 h-20 rounded-full bg-rose-500/15 border-2 border-rose-500/40 flex items-center justify-center mb-4 text-rose-500 shadow-inner">
+                <XCircle className="w-10 h-10" />
+              </div>
+              <p className="text-base font-black text-white mb-1.5 uppercase tracking-wide">
+                QR Code Expiré
+              </p>
+              <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
+                La soirée du {formatFrenchDate(registration.event.event_date)} est terminée. Ce QR code n&apos;est plus actif et ne peut plus être scanné à l&apos;entrée.
+              </p>
             </div>
+          ) : (
+            <div className="p-6 flex flex-col items-center justify-center bg-[#0d0e14]">
+              <div className="p-3.5 bg-white rounded-2xl shadow-2xl flex items-center justify-center border-4 border-[#e5b85c]/30">
+                <canvas ref={canvasRef} className="rounded-lg max-w-full h-auto block" />
+              </div>
 
-            <p className="text-xs font-bold text-white mt-4 tracking-wide text-center">
-              Fais scanner ce QR code à l&apos;entrée
-            </p>
-            <p className="text-[11px] text-gray-400 mt-1 text-center">
-              1 entrée gratuite par pass • Scan unique aux videurs
-            </p>
-          </div>
+              <p className="text-xs font-bold text-white mt-4 tracking-wide text-center">
+                Fais scanner ce QR code à l&apos;entrée
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1 text-center">
+                1 entrée gratuite par pass • Scan unique aux videurs
+              </p>
+            </div>
+          )}
 
           {/* Détails Date & Horaires */}
           <div className="p-4 bg-[#0f1118] border-t border-[#232738] space-y-2">
@@ -261,43 +298,57 @@ export default function GuestQrPassPage({
           </div>
 
           {/* Consignes d'accès — Indispensable */}
-          <div className="p-4 bg-[#141622] border-t border-[#232738] space-y-2.5 text-left">
-            <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-[#e5b85c] shrink-0" />
-              <span>Comment utiliser ce billet ?</span>
-            </div>
-            <div className="space-y-2 text-xs text-gray-300">
-              <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="leading-snug">
-                  <strong className="text-white">Faites scanner ce pass quoi qu&apos;il arrive</strong> par les videurs ou le staff à la porte pour valider votre entrée gratuite.
-                </p>
+          {!isEventExpired && (
+            <div className="p-4 bg-[#141622] border-t border-[#232738] space-y-2.5 text-left">
+              <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] uppercase tracking-wider">
+                <ShieldCheck className="w-4 h-4 text-[#e5b85c] shrink-0" />
+                <span>Comment utiliser ce billet ?</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-[#e5b85c] shrink-0 mt-0.5" />
-                <p className="leading-snug text-gray-400">
-                  Votre entrée est <strong>100% gratuite</strong> grâce à l&apos;invitation de <strong>{registration.promoter.first_name}</strong>.
-                </p>
+              <div className="space-y-2 text-xs text-gray-300">
+                <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="leading-snug">
+                    <strong className="text-white">Faites scanner ce pass quoi qu&apos;il arrive</strong> par les videurs ou le staff à la porte pour valider votre entrée gratuite.
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-[#e5b85c] shrink-0 mt-0.5" />
+                  <p className="leading-snug text-gray-400">
+                    Votre entrée est <strong>100% gratuite</strong> grâce à l&apos;invitation de <strong>{registration.promoter.first_name}</strong>.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Conseil luminosité */}
-        <div className="mt-3 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-2.5 text-xs text-gray-400">
-          <SunMedium className="w-4 h-4 text-[#e5b85c] shrink-0" />
-          <span>Augmente la luminosité de ton écran à l&apos;entrée pour faciliter le scan.</span>
-        </div>
+        {/* Conseil luminosité (si non expiré) */}
+        {!isEventExpired && (
+          <div className="mt-3 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-2.5 text-xs text-gray-400">
+            <SunMedium className="w-4 h-4 text-[#e5b85c] shrink-0" />
+            <span>Augmente la luminosité de ton écran à l&apos;entrée pour faciliter le scan.</span>
+          </div>
+        )}
 
         {/* Bouton Sauvegarder dans la galerie */}
-        <button
-          onClick={handleDownload}
-          disabled={!qrGenerated}
-          className="w-full mt-3 py-3.5 px-4 bg-[#181b26] hover:bg-[#202534] border border-[#2d3246] rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98"
-        >
-          <Download className="w-4 h-4 text-[#e5b85c]" />
-          <span>Enregistrer le Pass (Image / Capture)</span>
-        </button>
+        {!isEventExpired ? (
+          <button
+            onClick={handleDownload}
+            disabled={!qrGenerated}
+            className="w-full mt-3 py-3.5 px-4 bg-[#181b26] hover:bg-[#202534] border border-[#2d3246] rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98"
+          >
+            <Download className="w-4 h-4 text-[#e5b85c]" />
+            <span>Enregistrer le Pass (Image / Capture)</span>
+          </button>
+        ) : (
+          <button
+            disabled
+            className="w-full mt-3 py-3.5 px-4 bg-[#141620] border border-[#252838] rounded-xl text-gray-500 font-semibold text-xs flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
+          >
+            <AlertCircle className="w-4 h-4 text-rose-500" />
+            <span>Billet expiré (Soirée passée)</span>
+          </button>
+        )}
 
         <p className="text-center text-[10px] text-gray-500 mt-4">
           ASTRA Club Orléans • Billet officiel nominatif vérifié

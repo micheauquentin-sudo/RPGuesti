@@ -21,11 +21,9 @@ export default function PromoterPublicPage({
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Formulaire
+  // Formulaire (Prénom & Nom uniquement pour inscription 100% rapide)
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [instagram, setInstagram] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -90,8 +88,6 @@ export default function PromoterPublicPage({
           event_id: currentEvent.id,
           first_name: firstName,
           last_name: lastName,
-          phone,
-          instagram_handle: instagram,
         }),
       });
 
@@ -183,9 +179,15 @@ export default function PromoterPublicPage({
         {/* Soirée disponible */}
         {currentEvent ? (
           <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
+            {/* BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ */}
+            <div className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 text-black py-2.5 px-4 text-center font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
+              <Sparkles className="w-4 h-4 text-black shrink-0" />
+              <span>ENTRÉE 100% GRATUITE • PASS INVITÉ COUPE-FILE</span>
+            </div>
+
             {/* Event Poster if available */}
             {currentEvent.cover_image_url && (
-              <div className="relative h-44 w-full overflow-hidden border-b border-[#232738]">
+              <div className="relative h-48 w-full overflow-hidden border-b border-[#232738]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentEvent.cover_image_url}
@@ -197,27 +199,14 @@ export default function PromoterPublicPage({
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
                     SOIRÉE OFFICIELLE
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/90 text-black shadow">
-                    Entrée Gratuite
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500 text-black shadow">
+                    100% Gratuit
                   </span>
                 </div>
               </div>
             )}
 
             <div className="p-6 sm:p-7">
-              {/* Tag Entrée Gratuite (si pas d'affiche) */}
-              {!currentEvent.cover_image_url && (
-                <div className="flex items-center justify-between mb-4">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Entrée Gratuite
-                  </span>
-                  <span className="text-[11px] text-gray-400 font-medium">
-                    Accès Prioritaire QR
-                  </span>
-                </div>
-              )}
-
               {/* Titre & Date Soirée */}
               <h2 className="text-xl font-bold text-white mb-3">
                 {currentEvent.name}
@@ -240,94 +229,65 @@ export default function PromoterPublicPage({
                 </p>
               )}
 
-            {errorMsg && (
-              <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {/* Formulaire Frictionless */}
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                    Prénom *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Lucas"
-                    className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
-                  />
+              {errorMsg && (
+                <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                    Nom *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Bernard"
-                    className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
-                  />
+              )}
+
+              {/* Formulaire Ultra-Frictionless (Prénom & Nom uniquement) */}
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                      Prénom *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Lucas"
+                      className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                      Nom *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Bernard"
+                      className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Téléphone <span className="text-gray-500 text-[10px] normal-case">(facultatif)</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="06 12 34 56 78"
-                  className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
-                />
-              </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full mt-4 py-3.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-extrabold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-sm uppercase tracking-wider active:scale-98"
+                >
+                  {submitting ? (
+                    <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent" />
+                  ) : (
+                    <>
+                      <span>Obtenir mon entrée gratuite</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Instagram <span className="text-gray-500 text-[10px] normal-case">(facultatif)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">@</span>
-                  <input
-                    type="text"
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                    placeholder="votre_pseudo"
-                    className="w-full pl-8 pr-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full mt-4 py-3.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-extrabold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 text-sm uppercase tracking-wider"
-              >
-                {submitting ? (
-                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent" />
-                ) : (
-                  <>
-                    <span>Obtenir mon entrée gratuite</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            <p className="text-[11px] text-center text-gray-500 mt-4">
-              Génération instantanée de votre QR code • Sans création de compte
-            </p>
+              <p className="text-[11px] text-center text-gray-500 mt-4">
+                Génération instantanée de votre QR code • Entrée gratuite garantie
+              </p>
+            </div>
           </div>
-        </div>
         ) : (
           <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-8 text-center">
             <Calendar className="w-10 h-10 text-gray-500 mx-auto mb-3" />

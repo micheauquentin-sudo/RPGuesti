@@ -20,32 +20,136 @@ import {
   Users, 
   TrendingUp, 
   Flame,
-  Award
+  Award,
+  Upload
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 
-const AVATAR_PRESETS = [
+export interface AvatarItem {
+  name: string;
+  category: 'club' | 'gaming' | 'cinema' | 'animals';
+  url: string;
+}
+
+export const AVATAR_CATALOG: AvatarItem[] = [
+  // CLUB & COSMIQUE (Boule à facette 3D & Planète Saturne)
   {
-    name: 'Gold VIP',
+    name: 'Boule à facette 3D',
+    category: 'club',
+    url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Planète Saturne 3D',
+    category: 'club',
+    url: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Gold VIP ASTRA',
+    category: 'club',
     url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop',
   },
   {
-    name: 'Nightlife DJ',
+    name: 'Nightlife DJ Club',
+    category: 'club',
     url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop',
   },
   {
-    name: 'Club Luxe',
+    name: 'Laser Show Club',
+    category: 'club',
     url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=400&auto=format&fit=crop',
   },
+
+  // JEUX VIDÉO SUPER CONNUS
   {
-    name: 'Cyber Noir',
-    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=400&auto=format&fit=crop',
+    name: 'Cyberpunk Neon V',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop',
   },
   {
-    name: 'Executive RP',
+    name: 'Master Chief Spartan',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Guerrier Divin (Kratos)',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Pixel Star (Mario)',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Ultra Speed (Sonic)',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Electric Star (Pikachu)',
+    category: 'gaming',
+    url: 'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?q=80&w=400&auto=format&fit=crop',
+  },
+
+  // PERSONNAGES DE FILMS LÉGENDAIRES
+  {
+    name: 'Neo (Matrix Cyber)',
+    category: 'cinema',
+    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Batman (Dark Knight)',
+    category: 'cinema',
+    url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Le Parrain (Corleone)',
+    category: 'cinema',
+    url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Thomas Shelby (Peaky)',
+    category: 'cinema',
+    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Tony Montana (Scarface)',
+    category: 'cinema',
     url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Joker (Wild Card)',
+    category: 'cinema',
+    url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=400&auto=format&fit=crop',
+  },
+
+  // ANIMAUX EN 3D CARTOON
+  {
+    name: 'Lion Roi 3D',
+    category: 'animals',
+    url: 'https://images.unsplash.com/photo-1534188753412-3e26d0d618d6?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Singe Cyber 3D',
+    category: 'animals',
+    url: 'https://images.unsplash.com/photo-1540573133985-87b6da6d54a9?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Panda DJ 3D',
+    category: 'animals',
+    url: 'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Loup Alpha 3D',
+    category: 'animals',
+    url: 'https://images.unsplash.com/photo-1564419320461-6870880221ad?q=80&w=400&auto=format&fit=crop',
+  },
+  {
+    name: 'Tigre Gold 3D',
+    category: 'animals',
+    url: 'https://images.unsplash.com/photo-1534177616072-ef7dc120449d?q=80&w=400&auto=format&fit=crop',
   },
 ];
 
@@ -96,8 +200,49 @@ export default function PromoterDashboardPage() {
   const [editLastName, setEditLastName] = useState('');
   const [editInstagram, setEditInstagram] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [avatarCategory, setAvatarCategory] = useState<'all' | 'club' | 'gaming' | 'cinema' | 'animals'>('all');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner un fichier image valide (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 400; // Format avatar idéal
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          setEditAvatarUrl(dataUrl);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const loadData = async () => {
     try {
@@ -696,29 +841,110 @@ export default function PromoterDashboardPage() {
                 </div>
               </div>
 
-              {/* Presets Avatars */}
+              {/* Sélecteur d'Avatar Enrichi */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-2">
-                  Styles d&apos;avatar VIP ASTRA
+                  Choisir mon Avatar (Jeux Vidéo, Films, Animaux 3D, Club & Espace)
                 </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {AVATAR_PRESETS.map((preset) => (
+
+                {/* Bouton d'import direct de photo perso */}
+                <div className="mb-3">
+                  <label className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#1b1e2c] hover:bg-[#252b3d] border border-dashed border-[#e5b85c]/60 rounded-xl text-xs text-[#e5b85c] font-bold cursor-pointer transition-all shadow group">
+                    <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>📁 Importer ma propre photo (PNG, JPG, WebP)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarFileUpload}
+                    />
+                  </label>
+                </div>
+
+                {/* Filtres par Catégorie */}
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('all')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'all'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Tous ({AVATAR_CATALOG.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('club')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'club'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    ✨ Club & Espace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('gaming')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'gaming'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🎮 Jeux Vidéo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('cinema')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'cinema'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🎬 Films Légendaires
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('animals')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'animals'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    🦁 Animaux 3D
+                  </button>
+                </div>
+
+                {/* Grille d'Avatars */}
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-48 overflow-y-auto p-1.5 bg-[#0b0c12] rounded-xl border border-[#232738]">
+                  {AVATAR_CATALOG.filter(
+                    (item) => avatarCategory === 'all' || item.category === avatarCategory
+                  ).map((item) => (
                     <button
-                      key={preset.name}
+                      key={item.name}
                       type="button"
-                      onClick={() => setEditAvatarUrl(preset.url)}
-                      className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 cursor-pointer aspect-square ${
-                        editAvatarUrl === preset.url
-                          ? 'border-[#e5b85c] ring-2 ring-[#e5b85c]/40 scale-105'
-                          : 'border-transparent hover:border-gray-500 opacity-70 hover:opacity-100'
+                      title={item.name}
+                      onClick={() => setEditAvatarUrl(item.url)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-all p-0.5 cursor-pointer aspect-square group ${
+                        editAvatarUrl === item.url
+                          ? 'border-[#e5b85c] ring-2 ring-[#e5b85c]/50 scale-105 shadow-lg'
+                          : 'border-transparent hover:border-gray-500 opacity-75 hover:opacity-100'
                       }`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={preset.url}
-                        alt={preset.name}
+                        src={item.url}
+                        alt={item.name}
                         className="w-full h-full object-cover rounded-lg"
                       />
+                      <span className="absolute inset-x-0 bottom-0 bg-black/80 text-[8px] font-bold text-white text-center py-0.5 px-0.5 truncate group-hover:block hidden">
+                        {item.name}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -727,13 +953,13 @@ export default function PromoterDashboardPage() {
               {/* URL Avatar Personnalisée */}
               <div>
                 <label className="block text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-1.5">
-                  Lien photo URL direct (Optionnel)
+                  Ou lien photo URL direct (Optionnel)
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   value={editAvatarUrl}
                   onChange={(e) => setEditAvatarUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
+                  placeholder="https://..."
                   className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
                 />
               </div>
