@@ -56,8 +56,8 @@ export default function AdminEntriesPage() {
       const { data: eData } = await supabase.from('events').select('*').order('event_date', { ascending: false });
       if (eData) setEvents(eData);
 
-      const { data: pData } = await supabase.from('promoters').select('*').order('first_name');
-      if (pData) setPromoters(pData);
+      const { data: pData } = await supabase.from('promoters').select('id, first_name, last_name, slug, avatar_url').order('first_name');
+      if (pData) setPromoters(pData as unknown as typeof promoters);
     }
     loadFilters();
   }, []);

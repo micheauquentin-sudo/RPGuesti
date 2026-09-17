@@ -57,7 +57,7 @@ export default async function AdminDashboardPage() {
     // 3. RP Actifs
     supabase
       .from('promoters')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_active', true),
     // 4. Entrées cette année (Total Concours)
     supabase

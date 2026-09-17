@@ -191,10 +191,25 @@ export async function PUT(request: Request) {
 
     const isAdmin = profile?.role === 'admin';
 
-    // Trouver le promoter cible
+    // Trouver le promoter cible (Sécurité anti-IDOR stricte)
     let targetPromoterId = promoter_id;
 
-    if (!targetPromoterId) {
+    if (!isAdmin) {
+      // Pour les RP normaux : verrouillage strict sur leur propre profil uniquement
+      const { data: ownPromoter } = await supabaseAdmin
+        .from('promoters')
+        .select('id')
+        .eq('profile_id', user.id)
+        .maybeSingle();
+
+      if (!ownPromoter) {
+        return NextResponse.json(
+          { error: 'Aucun compte RP associé à votre session.' },
+          { status: 403 }
+        );
+      }
+      targetPromoterId = ownPromoter.id;
+    } else if (!targetPromoterId) {
       const { data: p } = await supabaseAdmin
         .from('promoters')
         .select('id')
@@ -204,10 +219,10 @@ export async function PUT(request: Request) {
       targetPromoterId = p?.id;
     }
 
-    if (!targetPromoterId && !isAdmin) {
+    if (!targetPromoterId) {
       return NextResponse.json(
-        { error: 'Aucun compte RP associé à votre session.' },
-        { status: 404 }
+        { error: 'Identifiant du promoteur manquant.' },
+        { status: 400 }
       );
     }
 

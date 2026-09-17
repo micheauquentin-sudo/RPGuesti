@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // 1. VALIDATION DU LIEN D'INVITATION (GET)
 export async function GET(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`invite-get:${clientIp}`, { limit: 20, windowMs: 60_000 });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { valid: false, error: 'Trop de requêtes. Veuillez patienter un instant.' },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token')?.trim();
 
@@ -66,6 +76,15 @@ export async function GET(request: Request) {
 // 2. CRÉATION DE L'ESPACE RP PAR LE PROMOTEUR (POST)
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`invite-post:${clientIp}`, { limit: 5, windowMs: 60_000 });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives de création de compte. Veuillez patienter une minute.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { token, email, password } = body;
 

@@ -30,6 +30,28 @@ async function ensureColumnsExist() {
       CREATE INDEX IF NOT EXISTS idx_promoters_invite_token 
         ON public.promoters(invite_token) 
         WHERE invite_token IS NOT NULL;
+
+      -- Revoke sensitive invite columns from anon and authenticated
+      DO $$
+      BEGIN
+        REVOKE SELECT (invite_token, invite_expires_at) ON public.promoters FROM anon, authenticated;
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+
+      -- Drop unsafe public policies
+      DROP POLICY IF EXISTS "Creation guest autorisee" ON public.guests;
+      DROP POLICY IF EXISTS "Lecture registration par token pour pass invité" ON public.registrations;
+      DROP POLICY IF EXISTS "Creation registration autorisee" ON public.registrations;
+
+      -- Secure registrations policy: RP reads own, staff/admin reads all
+      DROP POLICY IF EXISTS "RP lecture de ses propres registrations" ON public.registrations;
+      CREATE POLICY "RP lecture de ses propres registrations"
+      ON public.registrations FOR SELECT
+      USING (
+          promoter_id IN (
+              SELECT id FROM public.promoters WHERE profile_id = auth.uid()
+          ) OR public.is_staff_or_admin()
+      );
     `);
     await client.end();
     migrationDone = true;

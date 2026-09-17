@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, use } from 'react';
 import QRCode from 'qrcode';
-import { createClient } from '@/lib/supabase/client';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium, XCircle, Share2, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -353,38 +352,18 @@ export default function GuestQrPassPage({
     async function loadRegistration() {
       setLoading(true);
       setErrorMsg(null);
-      const supabase = createClient();
 
       try {
-        const { data, error } = await supabase
-          .from('registrations')
-          .select(`
-            id,
-            qr_token,
-            status,
-            guest:guests(first_name, last_name),
-            event:events(name, event_date, start_time, end_time, cover_image_url),
-            promoter:promoters(first_name, last_name, avatar_url)
-          `)
-          .eq('qr_token', token)
-          .maybeSingle();
+        const res = await fetch(`/api/pass?token=${encodeURIComponent(token)}`);
+        const json = await res.json();
 
-        if (error || !data) {
-          setErrorMsg('QR code introuvable ou expiré.');
+        if (!res.ok || !json.success || !json.data) {
+          setErrorMsg(json.error || 'QR code introuvable ou expiré.');
           setLoading(false);
           return;
         }
 
-        const regDetail: RegistrationDetail = {
-          id: data.id,
-          qr_token: data.qr_token,
-          status: data.status,
-          guest: Array.isArray(data.guest) ? data.guest[0] : (data.guest as unknown as { first_name: string; last_name: string }),
-          event: Array.isArray(data.event) ? data.event[0] : (data.event as unknown as { name: string; event_date: string; start_time: string; end_time: string; cover_image_url?: string | null }),
-          promoter: Array.isArray(data.promoter) ? data.promoter[0] : (data.promoter as unknown as { first_name: string; last_name: string; avatar_url?: string | null }),
-        };
-
-        setRegistration(regDetail);
+        setRegistration(json.data as RegistrationDetail);
 
         // Confetti d'obtention de pass
         try {

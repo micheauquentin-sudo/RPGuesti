@@ -8,6 +8,8 @@ import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import { Sparkles, Calendar, Clock, ArrowRight, AlertCircle, CheckCircle2, UserCheck } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
+type PublicPromoter = Pick<Promoter, 'id' | 'first_name' | 'last_name' | 'slug' | 'avatar_url' | 'instagram_handle' | 'is_active'>;
+
 export default function PromoterPublicPage({
   params,
 }: {
@@ -16,7 +18,7 @@ export default function PromoterPublicPage({
   const { slug } = use(params);
   const router = useRouter();
 
-  const [promoter, setPromoter] = useState<Promoter | null>(null);
+  const [promoter, setPromoter] = useState<PublicPromoter | null>(null);
   const [currentEvent, setCurrentEvent] = useState<ClubEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function PromoterPublicPage({
         // 1. Récupérer le promoteur actif par son slug
         const { data: pData, error: pError } = await supabase
           .from('promoters')
-          .select('*')
+          .select('id, first_name, last_name, slug, avatar_url, instagram_handle, is_active')
           .eq('slug', slug.toLowerCase())
           .eq('is_active', true)
           .maybeSingle();

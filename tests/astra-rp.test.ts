@@ -60,6 +60,20 @@ describe('ASTRA RP — Fonctions Utilitaires & Sécurité', () => {
     expect(csv).toContain('"Rang";"Nom";"Entrées"');
     expect(csv).toContain('"1";"Lucas Bernard";"42"');
   });
+
+  it('Neutralise les injections de formules CSV (=, +, -, @) pour Excel', () => {
+    const headers = ['Nom', 'Payload'];
+    const maliciousRows = [
+      ['=cmd|\' /C calc\'!A0', '@SUM(1+1)'],
+      ['+12345', '-test']
+    ];
+
+    const csv = generateCsvContent(headers, maliciousRows);
+    expect(csv).toContain("\"'=cmd|' /C calc'!A0\"");
+    expect(csv).toContain("\"'@SUM(1+1)\"");
+    expect(csv).toContain("\"'+12345\"");
+    expect(csv).toContain("\"'-test\"");
+  });
 });
 
 describe('ASTRA RP — Règle Métier Absolue : Inscription ≠ Entrée', () => {

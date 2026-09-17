@@ -79,11 +79,18 @@ export function calculateAttendanceRate(entries: number, registrations: number):
  */
 export function generateCsvContent(headers: string[], rows: (string | number)[][]): string {
   const bom = '\uFEFF';
+  const sanitizeCell = (val: string | number | null | undefined): string => {
+    let str = String(val ?? '');
+    // Neutralisation de l'injection de formules CSV (Excel, LibreOffice, Google Sheets)
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = `'${str}`;
+    }
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
   const csvLines = [
-    headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(';'),
-    ...rows.map(row => 
-      row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(';')
-    )
+    headers.map(sanitizeCell).join(';'),
+    ...rows.map(row => row.map(sanitizeCell).join(';'))
   ];
   return bom + csvLines.join('\r\n');
 }

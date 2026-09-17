@@ -2,9 +2,20 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // 1. Rate Limiting : max 60 scans par minute par IP
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`checkin:${clientIp}`, { limit: 60, windowMs: 60_000 });
+    if (!rateLimit.success) {
+      return NextResponse.json(
+        { success: false, status: 'RATE_LIMITED', message: 'Trop de scans consécutifs. Veuillez patienter.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { qr_data } = body;
 
@@ -15,8 +26,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Extraire le token propre
-    // Le QR code peut être soit l'URL complète "https://.../check-in/TOKEN", soit le TOKEN direct
+    // 2. Extraire le token propre
     let qrToken = String(qr_data).trim();
     if (qrToken.includes('/check-in/')) {
       qrToken = qrToken.split('/check-in/')[1]?.split('?')[0]?.trim() || qrToken;
@@ -24,7 +34,7 @@ export async function POST(request: Request) {
       qrToken = qrToken.split('/qr/')[1]?.split('?')[0]?.trim() || qrToken;
     }
 
-    // 2. Vérifier l'authentification de l'agent qui scanne
+    // 3. SÉCURITÉ : Authentification OBLIGATOIRE du scanner
     const cookieStore = await cookies();
     const supabaseUser = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -40,14 +50,32 @@ export async function POST(request: Request) {
     );
 
     const { data: { user } } = await supabaseUser.auth.getUser();
-    let scannedBy: string | null = null;
-
-    if (user) {
-      scannedBy = user.id;
+    if (!user) {
+      return NextResponse.json(
+        { success: false, status: 'UNAUTHORIZED', message: 'Connexion requise pour valider un pass invité.' },
+        { status: 401 }
+      );
     }
 
-    // 3. Vérifier si l'événement associé à ce pass a déjà expiré (soirée passée)
     const supabaseAdmin = createAdminClient();
+
+    // Vérifier le rôle de l'utilisateur
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile || !['staff', 'admin', 'promoter'].includes(profile.role)) {
+      return NextResponse.json(
+        { success: false, status: 'FORBIDDEN', message: 'Accès non autorisé. Réservé au staff, admin et RP.' },
+        { status: 403 }
+      );
+    }
+
+    const scannedBy = user.id;
+
+    // 4. Vérifier si l'événement associé à ce pass a déjà expiré (soirée passée)
     const { data: regCheck } = await supabaseAdmin
       .from('registrations')
       .select('event:events(name, event_date, end_time, status)')
@@ -71,7 +99,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Appel de la fonction atomique PostgreSQL
+    // 5. Appel de la fonction atomique PostgreSQL
     const { data, error } = await supabaseAdmin.rpc('check_in_guest', {
       p_qr_token: qrToken,
       p_scanned_by: scannedBy,
