@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --background: #08090d;
+  --foreground: #f3f4f6;
+  --surface: #0f1118;
+  --surface-border: #1d212f;
+  --surface-hover: #171a26;
+  --astra-gold: #e5b85c;
+  --astra-gold-dim: #99752d;
+  --astra-emerald: #10b981;
+  --astra-rose: #f43f5e;
+  --astra-purple: #8b5cf6;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090a0f;
+}
+::-webkit-scrollbar-thumb {
+  background: #232738;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #353b52;
+}
+
+/* Subtle glow utilities */
+.glow-gold {
+  box-shadow: 0 0 25px -5px rgba(229, 184, 92, 0.25);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.3);
+}
+
+.glow-rose {
+  box-shadow: 0 0 25px -5px rgba(244, 63, 94, 0.3);
+}
