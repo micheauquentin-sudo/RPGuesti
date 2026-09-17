@@ -20,10 +20,12 @@ interface RegistrationDetail {
     event_date: string;
     start_time: string;
     end_time: string;
+    cover_image_url?: string | null;
   };
   promoter: {
     first_name: string;
     last_name: string;
+    avatar_url?: string | null;
   };
 }
 
@@ -54,8 +56,8 @@ export default function GuestQrPassPage({
             qr_token,
             status,
             guest:guests(first_name, last_name),
-            event:events(name, event_date, start_time, end_time),
-            promoter:promoters(first_name, last_name)
+            event:events(name, event_date, start_time, end_time, cover_image_url),
+            promoter:promoters(first_name, last_name, avatar_url)
           `)
           .eq('qr_token', token)
           .maybeSingle();
@@ -72,8 +74,8 @@ export default function GuestQrPassPage({
           qr_token: data.qr_token,
           status: data.status,
           guest: Array.isArray(data.guest) ? data.guest[0] : (data.guest as unknown as { first_name: string; last_name: string }),
-          event: Array.isArray(data.event) ? data.event[0] : (data.event as unknown as { name: string; event_date: string; start_time: string; end_time: string }),
-          promoter: Array.isArray(data.promoter) ? data.promoter[0] : (data.promoter as unknown as { first_name: string; last_name: string }),
+          event: Array.isArray(data.event) ? data.event[0] : (data.event as unknown as { name: string; event_date: string; start_time: string; end_time: string; cover_image_url?: string | null }),
+          promoter: Array.isArray(data.promoter) ? data.promoter[0] : (data.promoter as unknown as { first_name: string; last_name: string; avatar_url?: string | null }),
         };
 
         setRegistration(regDetail);
@@ -164,71 +166,125 @@ export default function GuestQrPassPage({
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#08090d] text-gray-100">
-      <div className="w-full max-w-sm">
+      {/* Background glow */}
+      <div className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
         {/* Pass Card */}
         <div className="bg-[#0f1118] border border-[#232738] rounded-3xl overflow-hidden shadow-2xl relative">
-          {/* Header Billet */}
-          <div className="p-6 bg-gradient-to-b from-[#181b26] to-[#0f1118] border-b border-[#232738] text-center relative">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#0b0c10] border border-[#282d3f] mb-2 shadow-inner">
-              <Sparkles className="w-5 h-5 text-[#e5b85c]" />
+          {/* Event Poster Banner */}
+          {registration.event.cover_image_url ? (
+            <div className="relative h-44 w-full overflow-hidden border-b border-[#232738]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={registration.event.cover_image_url}
+                alt={registration.event.name}
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-black/60" />
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
+                  ASTRA CLUB
+                </span>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/90 text-black shadow">
+                  Entrée 100% Gratuite
+                </span>
+              </div>
+              <div className="absolute bottom-3 left-4 right-4">
+                <p className="text-[11px] font-bold text-[#e5b85c] uppercase tracking-wider">Soirée Officielle</p>
+                <h2 className="text-lg font-black text-white leading-tight drop-shadow truncate">
+                  {registration.event.name}
+                </h2>
+              </div>
             </div>
-            <h1 className="text-2xl font-black tracking-widest text-white uppercase">
-              ASTRA
-            </h1>
-            <p className="text-[10px] tracking-widest text-[#e5b85c] uppercase font-bold">
-              Pass Invité • Entrée Gratuite
-            </p>
+          ) : (
+            <div className="p-6 bg-gradient-to-b from-[#181b26] to-[#0f1118] border-b border-[#232738] text-center relative">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#0b0c10] border border-[#282d3f] mb-2 shadow-inner">
+                <Sparkles className="w-5 h-5 text-[#e5b85c]" />
+              </div>
+              <h1 className="text-2xl font-black tracking-widest text-white uppercase">
+                ASTRA
+              </h1>
+              <p className="text-[10px] tracking-widest text-[#e5b85c] uppercase font-bold">
+                Pass Invité • Entrée Gratuite
+              </p>
+            </div>
+          )}
 
-            <div className="mt-4 pt-3 border-t border-[#232738]/60 flex items-center justify-between text-left">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-gray-400">Invité</p>
-                <p className="font-bold text-white text-base">
-                  {registration.guest.first_name} {registration.guest.last_name}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-gray-400">RP ASTRA</p>
-                <p className="font-semibold text-[#e5b85c] text-sm">
-                  {registration.promoter.first_name} {registration.promoter.last_name}
-                </p>
-              </div>
+          {/* Invité & RP */}
+          <div className="px-5 py-3.5 bg-[#12141c] border-b border-[#232738]/80 flex items-center justify-between text-left">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Invité Nominatif</p>
+              <p className="font-extrabold text-white text-base">
+                {registration.guest.first_name} {registration.guest.last_name}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Invité par le RP</p>
+              <p className="font-bold text-[#e5b85c] text-sm">
+                {registration.promoter.first_name} {registration.promoter.last_name}
+              </p>
             </div>
           </div>
 
           {/* QR Code Container */}
           <div className="p-6 flex flex-col items-center justify-center bg-[#0d0e14]">
-            <div className="p-3.5 bg-white rounded-2xl shadow-xl flex items-center justify-center">
+            <div className="p-3.5 bg-white rounded-2xl shadow-2xl flex items-center justify-center border-4 border-[#e5b85c]/30">
               <canvas ref={canvasRef} className="rounded-lg max-w-full h-auto block" />
             </div>
 
-            <p className="text-xs font-semibold text-white mt-4 tracking-wide text-center">
-              Présente ce QR code à l&apos;entrée du club
+            <p className="text-xs font-bold text-white mt-4 tracking-wide text-center">
+              Fais scanner ce QR code à l&apos;entrée
             </p>
             <p className="text-[11px] text-gray-400 mt-1 text-center">
-              1 entrée valide par personne • Scan unique
+              1 entrée gratuite par pass • Scan unique aux videurs
             </p>
           </div>
 
-          {/* Détails Soirée */}
-          <div className="p-5 bg-[#0f1118] border-t border-[#232738] space-y-2">
-            <h2 className="text-sm font-bold text-white text-center">
-              {registration.event.name}
-            </h2>
-            <div className="flex items-center justify-center gap-4 text-xs text-gray-300">
-              <span className="flex items-center gap-1.5 capitalize">
+          {/* Détails Date & Horaires */}
+          <div className="p-4 bg-[#0f1118] border-t border-[#232738] space-y-2">
+            {!registration.event.cover_image_url && (
+              <h2 className="text-sm font-bold text-white text-center">
+                {registration.event.name}
+              </h2>
+            )}
+            <div className="flex items-center justify-center gap-4 text-xs text-gray-200">
+              <span className="flex items-center gap-1.5 capitalize font-medium">
                 <Calendar className="w-3.5 h-3.5 text-[#e5b85c]" />
                 {formatFrenchDate(registration.event.event_date)}
               </span>
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 font-medium">
                 <Clock className="w-3.5 h-3.5 text-[#e5b85c]" />
-                {formatFrenchTime(registration.event.start_time)}
+                {formatFrenchTime(registration.event.start_time)} → {formatFrenchTime(registration.event.end_time)}
               </span>
+            </div>
+          </div>
+
+          {/* Consignes d'accès — Indispensable */}
+          <div className="p-4 bg-[#141622] border-t border-[#232738] space-y-2.5 text-left">
+            <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-[#e5b85c] shrink-0" />
+              <span>Comment utiliser ce billet ?</span>
+            </div>
+            <div className="space-y-2 text-xs text-gray-300">
+              <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="leading-snug">
+                  <strong className="text-white">Faites scanner ce pass quoi qu&apos;il arrive</strong> par les videurs ou le staff à la porte pour valider votre entrée gratuite.
+                </p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-[#e5b85c] shrink-0 mt-0.5" />
+                <p className="leading-snug text-gray-400">
+                  Votre entrée est <strong>100% gratuite</strong> grâce à l&apos;invitation de <strong>{registration.promoter.first_name}</strong>.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Conseil luminosité */}
-        <div className="mt-4 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-3 text-xs text-gray-400">
+        <div className="mt-3 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-2.5 text-xs text-gray-400">
           <SunMedium className="w-4 h-4 text-[#e5b85c] shrink-0" />
           <span>Augmente la luminosité de ton écran à l&apos;entrée pour faciliter le scan.</span>
         </div>
@@ -237,14 +293,14 @@ export default function GuestQrPassPage({
         <button
           onClick={handleDownload}
           disabled={!qrGenerated}
-          className="w-full mt-3 py-3 px-4 bg-[#181b26] hover:bg-[#202534] border border-[#2d3246] rounded-xl text-white font-medium text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+          className="w-full mt-3 py-3.5 px-4 bg-[#181b26] hover:bg-[#202534] border border-[#2d3246] rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98"
         >
           <Download className="w-4 h-4 text-[#e5b85c]" />
           <span>Enregistrer le Pass (Image / Capture)</span>
         </button>
 
         <p className="text-center text-[10px] text-gray-500 mt-4">
-          ASTRA Club Orléans • Billet officiel nominatif
+          ASTRA Club Orléans • Billet officiel nominatif vérifié
         </p>
       </div>
     </div>

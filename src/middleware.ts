@@ -10,8 +10,8 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Seules les routes d'administration et de scan nécessitent une authentification
-  const requiresAuth = pathname.startsWith('/admin') || pathname.startsWith('/scan');
+  // Routes nécessitant une authentification
+  const requiresAuth = pathname.startsWith('/admin') || pathname.startsWith('/scan') || pathname.startsWith('/promoter');
 
   if (!requiresAuth) {
     return response;
@@ -59,9 +59,21 @@ export async function middleware(request: NextRequest) {
 
   const userRole = profile?.role || 'promoter';
 
-  // Protection /admin : réservé strictement aux admins
+  // Protection /admin : réservé strictement aux administrateurs
   if (pathname.startsWith('/admin') && userRole !== 'admin') {
     // Si staff, rediriger vers le scanner
+    if (userRole === 'staff') {
+      return NextResponse.redirect(new URL('/scan', request.url));
+    }
+    // Si promoter, rediriger vers son espace RP
+    if (userRole === 'promoter') {
+      return NextResponse.redirect(new URL('/promoter', request.url));
+    }
+    return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
+  }
+
+  // Protection /promoter : accessible aux promoters et à l'admin
+  if (pathname.startsWith('/promoter') && !['admin', 'promoter'].includes(userRole)) {
     if (userRole === 'staff') {
       return NextResponse.redirect(new URL('/scan', request.url));
     }
@@ -70,6 +82,9 @@ export async function middleware(request: NextRequest) {
 
   // Protection /scan : réservé au staff et à l'admin
   if (pathname.startsWith('/scan') && !['admin', 'staff'].includes(userRole)) {
+    if (userRole === 'promoter') {
+      return NextResponse.redirect(new URL('/promoter', request.url));
+    }
     return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
   }
 
@@ -77,5 +92,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/scan/:path*'],
+  matcher: ['/admin/:path*', '/scan/:path*', '/promoter/:path*'],
 };

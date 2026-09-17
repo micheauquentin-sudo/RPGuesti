@@ -143,9 +143,21 @@ export default function PromoterPublicPage({
       <div className="relative z-10 w-full max-w-md">
         {/* Header ASTRA + RP */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0f1118] border border-[#232738] mb-3 shadow-xl">
-            <Sparkles className="w-7 h-7 text-[#e5b85c]" />
-          </div>
+          {promoter.avatar_url ? (
+            <div className="relative inline-block mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={promoter.avatar_url}
+                alt={`${promoter.first_name} ${promoter.last_name}`}
+                className="w-16 h-16 rounded-full object-cover border-2 border-[#e5b85c] shadow-xl mx-auto"
+              />
+              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-[#08090d] rounded-full" />
+            </div>
+          ) : (
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0f1118] border border-[#232738] mb-3 shadow-xl">
+              <Sparkles className="w-7 h-7 text-[#e5b85c]" />
+            </div>
+          )}
           <h1 className="text-2xl font-black tracking-widest text-white uppercase">
             ASTRA
           </h1>
@@ -170,39 +182,63 @@ export default function PromoterPublicPage({
 
         {/* Soirée disponible */}
         {currentEvent ? (
-          <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 sm:p-7 shadow-2xl backdrop-blur-xl">
-            {/* Tag Entrée Gratuite */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Entrée Gratuite
-              </span>
-              <span className="text-[11px] text-gray-400 font-medium">
-                Accès Prioritaire QR
-              </span>
-            </div>
-
-            {/* Titre & Date Soirée */}
-            <h2 className="text-xl font-bold text-white mb-3">
-              {currentEvent.name}
-            </h2>
-
-            <div className="space-y-1.5 mb-6 text-sm text-gray-300">
-              <div className="flex items-center gap-2.5">
-                <Calendar className="w-4 h-4 text-[#e5b85c]" />
-                <span className="capitalize">{formatFrenchDate(currentEvent.event_date)}</span>
+          <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
+            {/* Event Poster if available */}
+            {currentEvent.cover_image_url && (
+              <div className="relative h-44 w-full overflow-hidden border-b border-[#232738]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentEvent.cover_image_url}
+                  alt={currentEvent.name}
+                  className="w-full h-full object-cover object-center"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-transparent" />
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-black/70 backdrop-blur-md text-[#e5b85c] border border-[#e5b85c]/40 shadow">
+                    SOIRÉE OFFICIELLE
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/90 text-black shadow">
+                    Entrée Gratuite
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 text-[#e5b85c]" />
-                <span>{formatFrenchTime(currentEvent.start_time)} → {formatFrenchTime(currentEvent.end_time)}</span>
-              </div>
-            </div>
-
-            {currentEvent.description && (
-              <p className="text-xs text-gray-400 mb-6 line-clamp-2 bg-[#141620] p-3 rounded-xl border border-[#202434]">
-                {currentEvent.description}
-              </p>
             )}
+
+            <div className="p-6 sm:p-7">
+              {/* Tag Entrée Gratuite (si pas d'affiche) */}
+              {!currentEvent.cover_image_url && (
+                <div className="flex items-center justify-between mb-4">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Entrée Gratuite
+                  </span>
+                  <span className="text-[11px] text-gray-400 font-medium">
+                    Accès Prioritaire QR
+                  </span>
+                </div>
+              )}
+
+              {/* Titre & Date Soirée */}
+              <h2 className="text-xl font-bold text-white mb-3">
+                {currentEvent.name}
+              </h2>
+
+              <div className="space-y-1.5 mb-6 text-sm text-gray-300">
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4 text-[#e5b85c]" />
+                  <span className="capitalize">{formatFrenchDate(currentEvent.event_date)}</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Clock className="w-4 h-4 text-[#e5b85c]" />
+                  <span>{formatFrenchTime(currentEvent.start_time)} → {formatFrenchTime(currentEvent.end_time)}</span>
+                </div>
+              </div>
+
+              {currentEvent.description && (
+                <p className="text-xs text-gray-400 mb-6 line-clamp-2 bg-[#141622] p-3 rounded-xl border border-[#202434]">
+                  {currentEvent.description}
+                </p>
+              )}
 
             {errorMsg && (
               <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2.5">
@@ -291,6 +327,7 @@ export default function PromoterPublicPage({
               Génération instantanée de votre QR code • Sans création de compte
             </p>
           </div>
+        </div>
         ) : (
           <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-8 text-center">
             <Calendar className="w-10 h-10 text-gray-500 mx-auto mb-3" />

@@ -44,6 +44,7 @@ export default function AdminLayout({
     { href: '/admin/entries', label: 'Entrées Scannées', icon: CheckSquare },
     { href: '/admin/guests', label: 'Invités', icon: UserCheck },
     { href: '/admin/audit-logs', label: 'Journal d’Audit', icon: FileText },
+    { href: '/promoter', label: 'Espace RP', icon: Sparkles },
     { href: '/scan', label: 'Scanner Caméra', icon: QrCode, highlight: true },
   ];
 

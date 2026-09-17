@@ -12,13 +12,36 @@ import {
   Clock, 
   ArrowRight, 
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Edit3,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface EventWithStats extends ClubEvent {
   registrations_count: number;
   entries_count: number;
 }
+
+// Affiches club ASTRA de haute qualité prédéfinies
+const POSTER_PRESETS = [
+  {
+    name: 'Gold Luxury Club',
+    url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Neon Violet Nightlife',
+    url: 'https://images.unsplash.com/photo-1545128485-c400e7702796?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Laser Crowd ASTRA',
+    url: 'https://images.unsplash.com/photo-1574391884720-bbc3740c59d1?w=800&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'DJ Electro Stage',
+    url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
+  },
+];
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventWithStats[]>([]);
@@ -32,10 +55,22 @@ export default function AdminEventsPage() {
   const [endTime, setEndTime] = useState('06:00');
   const [status, setStatus] = useState<EventStatus>('published');
   const [description, setDescription] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState(POSTER_PRESETS[0].url);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Modal Récurrence (ex: chaque samedi)
+  // Modal Édition
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEventDate, setEditEventDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('23:30');
+  const [editEndTime, setEditEndTime] = useState('06:00');
+  const [editStatus, setEditStatus] = useState<EventStatus>('published');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCoverImageUrl, setEditCoverImageUrl] = useState('');
+
+  // Modal Récurrence
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [recurrenceBaseName, setRecurrenceBaseName] = useState('ASTRA CLUB — SATURDAY');
   const [recurrenceStartDate, setRecurrenceStartDate] = useState('');
@@ -47,7 +82,6 @@ export default function AdminEventsPage() {
   const loadEvents = async () => {
     setLoading(true);
     try {
-      // 1. Tous les événements
       const { data: eList, error: eError } = await supabase
         .from('events')
         .select('*')
@@ -55,7 +89,6 @@ export default function AdminEventsPage() {
 
       if (eError) throw eError;
 
-      // 2. Inscriptions et entrées
       const { data: regs } = await supabase
         .from('registrations')
         .select('event_id, status')
@@ -115,6 +148,7 @@ export default function AdminEventsPage() {
           end_time: endTime + ':00',
           status,
           description: description.trim() || null,
+          cover_image_url: coverImageUrl.trim() || null,
         })
         .select('id')
         .single();
@@ -154,7 +188,74 @@ export default function AdminEventsPage() {
     }
   };
 
-  // Générateur de récurrence (ex: 4 prochains samedis)
+  const openEditModal = (ev: EventWithStats) => {
+    setEditEventId(ev.id);
+    setEditName(ev.name);
+    setEditEventDate(ev.event_date);
+    setEditStartTime(ev.start_time.slice(0, 5));
+    setEditEndTime(ev.end_time.slice(0, 5));
+    setEditStatus(ev.status);
+    setEditDescription(ev.description || '');
+    setEditCoverImageUrl(ev.cover_image_url || POSTER_PRESETS[0].url);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editEventId || !editName || !editEventDate) return;
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editEventId,
+          name: editName,
+          event_date: editEventDate,
+          start_time: editStartTime,
+          end_time: editEndTime,
+          status: editStatus,
+          description: editDescription,
+          cover_image_url: editCoverImageUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de la modification');
+
+      setEditModalOpen(false);
+      loadEvents();
+    } catch (err: unknown) {
+      const error = err as Error;
+      setErrorMsg(error?.message || 'Erreur de modification');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteEvent = async (ev: EventWithStats) => {
+    if (
+      !confirm(
+        `Êtes-vous certain de vouloir supprimer la soirée "${ev.name}" du ${formatFrenchDate(ev.event_date)} ?\n\nCette action supprimera également les inscriptions et entrées rattachées à cette date.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/events?id=${ev.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de la suppression');
+
+      setEvents((prev) => prev.filter((item) => item.id !== ev.id));
+    } catch (err: unknown) {
+      const error = err as Error;
+      alert(error?.message || 'Erreur lors de la suppression');
+    }
+  };
+
   const handleGenerateRecurrence = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recurrenceStartDate || recurrenceWeeks < 1) return;
@@ -180,7 +281,8 @@ export default function AdminEventsPage() {
             start_time: '23:30:00',
             end_time: '06:00:00',
             status: 'published',
-            description: 'Soirée ASTRA Orléans. Entrée gratuite avec QR code.',
+            description: 'Soirée officielle ASTRA Orléans. Entrée gratuite sous présentation du QR code.',
+            cover_image_url: POSTER_PRESETS[i % POSTER_PRESETS.length].url,
           })
           .select('id')
           .maybeSingle();
@@ -227,7 +329,7 @@ export default function AdminEventsPage() {
             Soirées & Événements
           </h1>
           <p className="text-gray-400 text-xs sm:text-sm mt-1">
-            Programmation des soirées ASTRA. Les RP permanents s&apos;adaptent automatiquement.
+            Programmation des soirées ASTRA avec affiches, horaires et gestion des inscriptions.
           </p>
         </div>
 
@@ -256,7 +358,7 @@ export default function AdminEventsPage() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-[#1d212f] bg-[#121520] text-gray-400 uppercase text-[10px] tracking-wider">
-                <th className="py-3.5 px-5 font-semibold">Nom de la soirée</th>
+                <th className="py-3.5 px-5 font-semibold">Affiche & Soirée</th>
                 <th className="py-3.5 px-4 font-semibold">Date & Heure</th>
                 <th className="py-3.5 px-4 font-semibold text-center">Statut</th>
                 <th className="py-3.5 px-4 font-semibold text-right">Inscriptions</th>
@@ -285,17 +387,32 @@ export default function AdminEventsPage() {
                   return (
                     <tr key={ev.id} className="hover:bg-[#141722]/80 transition-colors">
                       <td className="py-4 px-5">
-                        <Link
-                          href={`/admin/events/${ev.id}`}
-                          className="font-bold text-white text-sm hover:text-[#e5b85c] transition-colors"
-                        >
-                          {ev.name}
-                        </Link>
-                        {ev.description && (
-                          <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">
-                            {ev.description}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {ev.cover_image_url ? (
+                            <img
+                              src={ev.cover_image_url}
+                              alt={ev.name}
+                              className="w-12 h-14 object-cover rounded-xl border border-[#2b3044] shadow"
+                            />
+                          ) : (
+                            <div className="w-12 h-14 rounded-xl bg-[#171a25] border border-[#252b3d] flex items-center justify-center text-gray-500">
+                              <ImageIcon className="w-5 h-5 text-gray-600" />
+                            </div>
+                          )}
+                          <div>
+                            <Link
+                              href={`/admin/events/${ev.id}`}
+                              className="font-bold text-white text-sm hover:text-[#e5b85c] transition-colors"
+                            >
+                              {ev.name}
+                            </Link>
+                            {ev.description && (
+                              <p className="text-[11px] text-gray-400 line-clamp-1 mt-0.5">
+                                {ev.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </td>
 
                       <td className="py-4 px-4">
@@ -342,13 +459,29 @@ export default function AdminEventsPage() {
                       </td>
 
                       <td className="py-4 px-5 text-right">
-                        <Link
-                          href={`/admin/events/${ev.id}`}
-                          className="inline-flex items-center gap-1 py-1.5 px-3 bg-[#171a25] hover:bg-[#202534] border border-[#262c3e] text-gray-300 hover:text-white rounded-lg text-xs font-semibold transition-colors"
-                        >
-                          <span>Invités & Détails</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditModal(ev)}
+                            title="Modifier cette soirée"
+                            className="p-1.5 rounded-lg bg-[#171a25] hover:bg-[#202534] border border-[#262c3e] text-gray-300 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <Link
+                            href={`/admin/events/${ev.id}`}
+                            title="Invités & Détails"
+                            className="p-1.5 rounded-lg bg-[#171a25] hover:bg-[#202534] border border-[#262c3e] text-gray-300 hover:text-white transition-colors"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteEvent(ev)}
+                            title="Supprimer cette soirée"
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -359,10 +492,10 @@ export default function AdminEventsPage() {
         </div>
       </div>
 
-      {/* Modal Création d'événement */}
+      {/* MODAL CRÉATION DE SOIRÉE */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl">
+          <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5 text-[#e5b85c]" />
               <h2 className="text-lg font-bold text-white">Créer une nouvelle soirée</h2>
@@ -420,16 +553,34 @@ export default function AdminEventsPage() {
                 </div>
               </div>
 
+              {/* Sélection ou saisie de l'Affiche */}
               <div>
-                <label className="block font-semibold text-gray-300 mb-1">Statut initial</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as EventStatus)}
-                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
-                >
-                  <option value="published">Publié (ouvert immédiatement aux inscriptions)</option>
-                  <option value="draft">Brouillon (non visible)</option>
-                </select>
+                <label className="block font-semibold text-gray-300 mb-1.5">
+                  Affiche de la soirée (affichée sur les billets QR des invités)
+                </label>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {POSTER_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset.name}
+                      onClick={() => setCoverImageUrl(preset.url)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer h-16 ${
+                        coverImageUrl === preset.url
+                          ? 'border-[#e5b85c] scale-105 shadow-md'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="url"
+                  value={coverImageUrl}
+                  onChange={(e) => setCoverImageUrl(e.target.value)}
+                  placeholder="Ou collez une URL d'image personnalisée"
+                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white font-mono text-[11px] focus:outline-none focus:border-[#e5b85c]"
+                />
               </div>
 
               <div>
@@ -464,7 +615,143 @@ export default function AdminEventsPage() {
         </div>
       )}
 
-      {/* Modal Récurrence (Ex: chaque samedi) */}
+      {/* MODAL MODIFICATION DE SOIRÉE */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <Edit3 className="w-5 h-5 text-[#e5b85c]" />
+              <h2 className="text-lg font-bold text-white">Modifier la soirée</h2>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateEvent} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">Nom de la soirée *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-gray-300 mb-1">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editEventDate}
+                    onChange={(e) => setEditEventDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-300 mb-1">Statut</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as EventStatus)}
+                    className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                  >
+                    <option value="published">Publié (ouvert aux réservations)</option>
+                    <option value="closed">Fermé (soirée terminée)</option>
+                    <option value="draft">Brouillon</option>
+                    <option value="cancelled">Annulé</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-gray-300 mb-1">Début</label>
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-300 mb-1">Fin</label>
+                  <input
+                    type="time"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                  />
+                </div>
+              </div>
+
+              {/* Sélection ou saisie de l'Affiche */}
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1.5">
+                  Affiche de la soirée (affichée sur les billets QR)
+                </label>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {POSTER_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset.name}
+                      onClick={() => setEditCoverImageUrl(preset.url)}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer h-16 ${
+                        editCoverImageUrl === preset.url
+                          ? 'border-[#e5b85c] scale-105 shadow-md'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="url"
+                  value={editCoverImageUrl}
+                  onChange={(e) => setEditCoverImageUrl(e.target.value)}
+                  placeholder="https://... URL personnalisée de l'affiche"
+                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white font-mono text-[11px] focus:outline-none focus:border-[#e5b85c]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="flex-1 py-2.5 bg-[#171a25] hover:bg-[#202534] text-gray-300 rounded-xl font-semibold"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-2.5 bg-[#e5b85c] text-black font-bold rounded-xl disabled:opacity-50"
+                >
+                  {submitting ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL RÉCURRENCE */}
       {recurrenceOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl">
@@ -489,7 +776,7 @@ export default function AdminEventsPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-300 mb-1">Date du 1er samedi (ou jour de série)</label>
+                <label className="block font-semibold text-gray-300 mb-1">Date du 1er samedi</label>
                 <input
                   type="date"
                   required

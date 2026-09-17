@@ -41,8 +41,10 @@ function LoginForm() {
 
         if (profile?.role === 'staff') {
           router.push('/scan');
+        } else if (profile?.role === 'promoter') {
+          router.push('/promoter');
         } else {
-          router.push(redirectTo);
+          router.push(redirectTo && !redirectTo.includes('error') ? redirectTo : '/admin');
         }
         router.refresh();
       }
@@ -135,7 +137,7 @@ export default function LoginPage() {
             ASTRA
           </h1>
           <p className="text-xs uppercase tracking-widest text-gray-400 mt-1">
-            Club Privé — Orléans • Espace Staff & Admin
+            Club Privé — Orléans • Espace RP, Staff & Admin
           </p>
         </div>
 
