@@ -62,7 +62,7 @@ export default function HomePage() {
           </Link>
 
           <Link
-            href="/rp/lucas"
+            href="/promoter"
             className="w-full p-4 bg-[#0f1118] hover:bg-[#161a26] border border-[#1d212f] hover:border-[#e5b85c]/50 rounded-2xl flex items-center justify-between transition-all group shadow-lg"
           >
             <div className="flex items-center gap-3.5 text-left">
@@ -71,9 +71,9 @@ export default function HomePage() {
               </div>
               <div>
                 <h2 className="font-bold text-white group-hover:text-[#e5b85c] transition-colors">
-                  Aperçu Page RP (Ex: Lucas)
+                  Espace RP &amp; Promoteurs
                 </h2>
-                <p className="text-xs text-gray-400">Page publique de réservation invité</p>
+                <p className="text-xs text-gray-400">Portail RP : lien de partage, stats et classement</p>
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-gray-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />

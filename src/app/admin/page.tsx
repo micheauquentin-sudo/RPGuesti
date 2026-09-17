@@ -35,50 +35,55 @@ export default async function AdminDashboardPage() {
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01T00:00:00Z`;
 
-  // 1. Entrées aujourd'hui
-  const { count: entriesToday } = await supabase
-    .from('entries')
-    .select('*', { count: 'exact', head: true })
-    .gte('scanned_at', `${todayStr}T00:00:00Z`);
-
-  // 2. Inscriptions aujourd'hui
-  const { count: registrationsToday } = await supabase
-    .from('registrations')
-    .select('*', { count: 'exact', head: true })
-    .gte('registered_at', `${todayStr}T00:00:00Z`);
-
-  // 3. RP Actifs
-  const { count: activePromoters } = await supabase
-    .from('promoters')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_active', true);
-
-  // 4. Entrées cette année (Total Concours)
-  const { count: entriesThisYear } = await supabase
-    .from('entries')
-    .select('*', { count: 'exact', head: true })
-    .gte('scanned_at', yearStart)
-    .eq('status', 'valid');
-
-  // 5. Prochaine soirée
-  const { data: nextEvent } = await supabase
-    .from('events')
-    .select('*')
-    .eq('status', 'published')
-    .gte('event_date', todayStr)
-    .order('event_date', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  // 6. Top RP de l'année (calcul strict basé sur entries)
-  const { data: yearlyEntries } = await supabase
-    .from('entries')
-    .select(`
-      promoter_id,
-      promoter:promoters(first_name, last_name, slug)
-    `)
-    .gte('scanned_at', yearStart)
-    .eq('status', 'valid');
+  // Toutes les requêtes en parallèle pour un dashboard ultra-réactif
+  const [
+    { count: entriesToday },
+    { count: registrationsToday },
+    { count: activePromoters },
+    { count: entriesThisYear },
+    { data: nextEvent },
+    { data: yearlyEntries },
+  ] = await Promise.all([
+    // 1. Entrées aujourd'hui
+    supabase
+      .from('entries')
+      .select('*', { count: 'exact', head: true })
+      .gte('scanned_at', `${todayStr}T00:00:00Z`),
+    // 2. Inscriptions aujourd'hui
+    supabase
+      .from('registrations')
+      .select('*', { count: 'exact', head: true })
+      .gte('registered_at', `${todayStr}T00:00:00Z`),
+    // 3. RP Actifs
+    supabase
+      .from('promoters')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true),
+    // 4. Entrées cette année (Total Concours)
+    supabase
+      .from('entries')
+      .select('*', { count: 'exact', head: true })
+      .gte('scanned_at', yearStart)
+      .eq('status', 'valid'),
+    // 5. Prochaine soirée
+    supabase
+      .from('events')
+      .select('*')
+      .eq('status', 'published')
+      .gte('event_date', todayStr)
+      .order('event_date', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    // 6. Top RP de l'année
+    supabase
+      .from('entries')
+      .select(`
+        promoter_id,
+        promoter:promoters(first_name, last_name, slug)
+      `)
+      .gte('scanned_at', yearStart)
+      .eq('status', 'valid'),
+  ]);
 
   // Agréger par RP
   const promoterCountMap: Record<string, { name: string; slug: string; count: number }> = {};

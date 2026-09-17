@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateCsvContent, calculateAttendanceRate } from '@/lib/utils';
+import { verifyAdmin } from '@/lib/api-auth';
 
 export async function GET(request: Request) {
   try {
+    // SÉCURITÉ : Vérification obligatoire du rôle administrateur
+    const adminUser = await verifyAdmin();
+    if (!adminUser) {
+      return NextResponse.json(
+        { error: 'Accès non autorisé. Réservé aux administrateurs.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'entries';
     const eventId = searchParams.get('event_id');

@@ -1,37 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { slugify } from '@/lib/utils';
-
-// Helper pour vérifier que l'utilisateur est admin
-async function verifyAdmin() {
-  const cookieStore = await cookies();
-  const supabaseUser = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll() {},
-      },
-    }
-  );
-
-  const { data: { user } } = await supabaseUser.auth.getUser();
-  if (!user) return null;
-
-  const { data: profile } = await supabaseUser
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'admin') return null;
-  return user;
-}
+import { verifyAdmin } from '@/lib/api-auth';
 
 // 1. MODIFIER UN ÉVÉNEMENT (PUT)
 export async function PUT(request: Request) {

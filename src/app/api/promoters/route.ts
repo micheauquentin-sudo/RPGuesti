@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { verifyAdmin } from '@/lib/api-auth';
 
 export async function DELETE(request: Request) {
   try {
@@ -15,34 +14,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // 1. Vérifier que l'utilisateur connecté est bien administrateur
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll() {},
-        },
-      }
-    );
-
-    const { data: { user } } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Non authentifié.' }, { status: 401 });
-    }
-
-    const { data: profile } = await supabaseUser
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.role !== 'admin') {
+    // Vérification du rôle administrateur
+    const adminUser = await verifyAdmin();
+    if (!adminUser) {
       return NextResponse.json(
         { error: 'Action réservée aux administrateurs.' },
         { status: 403 }
@@ -77,7 +51,7 @@ export async function DELETE(request: Request) {
 
     // 4. Log d'audit
     await supabaseAdmin.from('audit_logs').insert({
-      user_id: user.id,
+      user_id: adminUser.id,
       action: 'PROMOTER_DELETED',
       entity_type: 'promoter',
       entity_id: id,

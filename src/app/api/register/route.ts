@@ -1,9 +1,30 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateQrToken } from '@/lib/utils';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+
+// Limites de validation
+const MAX_NAME_LENGTH = 50;
+const MAX_PHONE_LENGTH = 20;
+const MAX_INSTAGRAM_LENGTH = 50;
+
+/** Supprime tout tag HTML et espaces superflus */
+function sanitize(str: string): string {
+  return str.replace(/<[^>]*>/g, '').trim();
+}
 
 export async function POST(request: Request) {
   try {
+    // RATE LIMITING : 5 inscriptions par minute par IP
+    const clientIp = getClientIp(request);
+    const rateLimitResult = checkRateLimit(`register:${clientIp}`, { limit: 5, windowMs: 60_000 });
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez patienter avant de réessayer.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { promoter_slug, event_id, first_name, last_name, phone, instagram_handle } = body;
 
@@ -14,10 +35,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const trimmedFirstName = first_name.trim();
-    const trimmedLastName = last_name.trim();
-    const cleanPhone = phone?.trim() || null;
-    const cleanInstagram = instagram_handle?.trim().replace(/^@/, '') || null;
+    // VALIDATION DES INPUTS
+    if (first_name.length > MAX_NAME_LENGTH || last_name.length > MAX_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `Prénom et nom doivent faire ${MAX_NAME_LENGTH} caractères max.` },
+        { status: 400 }
+      );
+    }
+    if (phone && phone.length > MAX_PHONE_LENGTH) {
+      return NextResponse.json(
+        { error: `Numéro de téléphone invalide.` },
+        { status: 400 }
+      );
+    }
+    if (instagram_handle && instagram_handle.length > MAX_INSTAGRAM_LENGTH) {
+      return NextResponse.json(
+        { error: `Identifiant Instagram invalide.` },
+        { status: 400 }
+      );
+    }
+
+    const trimmedFirstName = sanitize(first_name).slice(0, MAX_NAME_LENGTH);
+    const trimmedLastName = sanitize(last_name).slice(0, MAX_NAME_LENGTH);
+    const cleanPhone = phone ? sanitize(phone).slice(0, MAX_PHONE_LENGTH) : null;
+    const cleanInstagram = instagram_handle ? sanitize(instagram_handle).replace(/^@/, '').slice(0, MAX_INSTAGRAM_LENGTH) : null;
 
     const supabase = createAdminClient();
 
