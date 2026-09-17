@@ -1,9 +1,59 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import pg from 'pg';
+
+let migrationChecked = false;
+async function ensureSecurityPolicies() {
+  if (migrationChecked) return;
+  const connectionString =
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_PRISMA_URL;
+  if (!connectionString) return;
+
+  try {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    const cleanUrl = connectionString.split('?')[0];
+    const client = new pg.Client({
+      connectionString: cleanUrl,
+      ssl: { rejectUnauthorized: false },
+    });
+    await client.connect();
+    await client.query(`
+      -- 1. REVOKE SELECT on sensitive columns in promoters
+      DO $$
+      BEGIN
+        REVOKE SELECT (invite_token, invite_expires_at) ON public.promoters FROM anon, authenticated;
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+
+      -- 2. Drop unsafe public policies
+      DROP POLICY IF EXISTS "Creation guest autorisee" ON public.guests;
+      DROP POLICY IF EXISTS "Lecture registration par token pour pass invité" ON public.registrations;
+      DROP POLICY IF EXISTS "Creation registration autorisee" ON public.registrations;
+
+      -- 3. Secure registrations policy
+      DROP POLICY IF EXISTS "RP lecture de ses propres registrations" ON public.registrations;
+      CREATE POLICY "RP lecture de ses propres registrations"
+      ON public.registrations FOR SELECT
+      USING (
+          promoter_id IN (
+              SELECT id FROM public.promoters WHERE profile_id = auth.uid()
+          ) OR public.is_staff_or_admin()
+      );
+    `);
+    await client.end();
+    migrationChecked = true;
+  } catch (err) {
+    console.warn('Security policies auto-migration warning:', err);
+  }
+}
 
 export async function GET(request: Request) {
   try {
+    await ensureSecurityPolicies();
     // 1. Rate Limiting : max 30 requêtes par minute par IP
     const clientIp = getClientIp(request);
     const rateLimit = checkRateLimit(`pass:${clientIp}`, { limit: 30, windowMs: 60_000 });
