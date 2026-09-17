@@ -104,17 +104,23 @@ export async function POST(request: Request) {
       // Expiration dans 7 jours
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const { error: updateErr } = await supabaseAdmin
-        .from('promoters')
-        .update({
-          invite_token: inviteToken,
-          invite_expires_at: expiresAt,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', promoter_id);
+      // Supprimer tout ancien lien d'invitation pour ce RP
+      await supabaseAdmin
+        .from('promoter_invites')
+        .delete()
+        .eq('promoter_id', promoter_id);
 
-      if (updateErr) {
-        throw updateErr;
+      // Insérer le nouveau lien dans la table sécurisée
+      const { error: insertErr } = await supabaseAdmin
+        .from('promoter_invites')
+        .insert({
+          promoter_id,
+          token: inviteToken,
+          expires_at: expiresAt,
+        });
+
+      if (insertErr) {
+        throw insertErr;
       }
 
       // Log d'audit
@@ -222,11 +228,15 @@ export async function POST(request: Request) {
         .update({
           profile_id: authUserId,
           email: cleanEmail,
-          invite_token: null,
-          invite_expires_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', promoter_id);
+
+      // Nettoyer les tokens d'invitation éventuels
+      await supabaseAdmin
+        .from('promoter_invites')
+        .delete()
+        .eq('promoter_id', promoter_id);
 
       // Log d'audit
       await supabaseAdmin.from('audit_logs').insert({

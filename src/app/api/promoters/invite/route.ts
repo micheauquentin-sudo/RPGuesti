@@ -26,21 +26,23 @@ export async function GET(request: Request) {
 
     const supabaseAdmin = createAdminClient();
 
-    const { data: promoter, error } = await supabaseAdmin
-      .from('promoters')
-      .select('id, first_name, last_name, slug, email, profile_id, invite_expires_at')
-      .eq('invite_token', token)
+    const { data: invite, error } = await supabaseAdmin
+      .from('promoter_invites')
+      .select('id, token, expires_at, promoter:promoters(id, first_name, last_name, slug, email, profile_id)')
+      .eq('token', token)
       .maybeSingle();
 
-    if (error || !promoter) {
+    if (error || !invite || !invite.promoter) {
       return NextResponse.json(
         { valid: false, error: 'Lien d\'invitation invalide ou expiré.' },
         { status: 404 }
       );
     }
 
+    const promoter = Array.isArray(invite.promoter) ? invite.promoter[0] : (invite.promoter as unknown as { id: string; first_name: string; last_name: string; slug: string; email: string | null; profile_id: string | null });
+
     // Vérifier l'expiration
-    if (promoter.invite_expires_at && new Date(promoter.invite_expires_at) < new Date()) {
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
       return NextResponse.json(
         { valid: false, error: 'Ce lien d\'invitation a expiré. Demandez un nouveau lien à la direction du club.' },
         { status: 410 }
@@ -108,20 +110,22 @@ export async function POST(request: Request) {
     const supabaseAdmin = createAdminClient();
 
     // Vérifier à nouveau le promoteur et le token
-    const { data: promoter, error: pErr } = await supabaseAdmin
-      .from('promoters')
-      .select('*')
-      .eq('invite_token', cleanToken)
+    const { data: invite, error: pErr } = await supabaseAdmin
+      .from('promoter_invites')
+      .select('id, token, expires_at, promoter:promoters(id, first_name, last_name, slug, email, profile_id)')
+      .eq('token', cleanToken)
       .maybeSingle();
 
-    if (pErr || !promoter) {
+    if (pErr || !invite || !invite.promoter) {
       return NextResponse.json(
         { error: 'Lien d\'invitation invalide ou déjà utilisé.' },
         { status: 404 }
       );
     }
 
-    if (promoter.invite_expires_at && new Date(promoter.invite_expires_at) < new Date()) {
+    const promoter = Array.isArray(invite.promoter) ? invite.promoter[0] : (invite.promoter as unknown as { id: string; first_name: string; last_name: string; slug: string; email: string | null; profile_id: string | null });
+
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
       return NextResponse.json(
         { error: 'Ce lien d\'invitation a expiré.' },
         { status: 410 }
@@ -179,19 +183,23 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       });
 
-    // Lier définitivement la fiche promoter et consommer le token
+    // Lier définitivement la fiche promoter
     const { error: linkErr } = await supabaseAdmin
       .from('promoters')
       .update({
         profile_id: authUserId,
         email: cleanEmail,
-        invite_token: null,
-        invite_expires_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', promoter.id);
 
     if (linkErr) throw linkErr;
+
+    // Consommer définitivement le token d'invitation
+    await supabaseAdmin
+      .from('promoter_invites')
+      .delete()
+      .eq('id', invite.id);
 
     // Log d'audit
     await supabaseAdmin.from('audit_logs').insert({

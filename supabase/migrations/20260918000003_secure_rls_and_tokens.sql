@@ -1,11 +1,39 @@
 -- =====================================================================
--- ASTRA RP — SECURING RLS POLICIES & TOKEN PRIVACY
+-- ASTRA RP — SECURING RLS POLICIES & SEPARATING INVITE TOKENS
 -- Migration: 20260918000003_secure_rls_and_tokens.sql
 -- =====================================================================
 
--- 1. REVOKE SELECT on sensitive columns in public.promoters
--- Empêche le scraping des tokens d'invitation par des utilisateurs anonymes ou connectés
-REVOKE SELECT (invite_token, invite_expires_at) ON public.promoters FROM anon, authenticated;
+-- 1. TABLE DÉDIÉE ET PRIVÉE POUR LES TOKENS D'INVITATION RP
+-- Ne jamais stocker de tokens dans la table publique `promoters`
+CREATE TABLE IF NOT EXISTS public.promoter_invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  promoter_id UUID NOT NULL REFERENCES public.promoters(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Activation du Row Level Security : AUCUNE policy pour anon ni authenticated
+-- Seul le backend (service_role) peut lire et écrire cette table
+ALTER TABLE public.promoter_invites ENABLE ROW LEVEL SECURITY;
+
+-- Migration des éventuels tokens existants
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'promoters' AND column_name = 'invite_token'
+  ) THEN
+    INSERT INTO public.promoter_invites (promoter_id, token, expires_at)
+    SELECT id, invite_token, COALESCE(invite_expires_at, now() + interval '7 days')
+    FROM public.promoters
+    WHERE invite_token IS NOT NULL
+    ON CONFLICT (token) DO NOTHING;
+
+    ALTER TABLE public.promoters DROP COLUMN IF EXISTS invite_token CASCADE;
+    ALTER TABLE public.promoters DROP COLUMN IF EXISTS invite_expires_at CASCADE;
+  END IF;
+END $$;
 
 -- 2. SUPPRESSION DE L'INSERT ANONYME DIRECT SUR LES TABLES SENSIBLES
 -- Les inscriptions doivent obligatoirement transiter par /api/register (validé, assaini et rate-limité)

@@ -22,11 +22,33 @@ async function ensureSecurityPolicies() {
     });
     await client.connect();
     await client.query(`
-      -- 1. REVOKE SELECT on sensitive columns in promoters
+      -- 1. Table dédiée et privée pour les tokens d'invitation RP
+      CREATE TABLE IF NOT EXISTS public.promoter_invites (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        promoter_id UUID NOT NULL REFERENCES public.promoters(id) ON DELETE CASCADE,
+        token TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+
+      ALTER TABLE public.promoter_invites ENABLE ROW LEVEL SECURITY;
+
+      -- Migration des anciens tokens et suppression définitive des colonnes de promoters
       DO $$
       BEGIN
-        REVOKE SELECT (invite_token, invite_expires_at) ON public.promoters FROM anon, authenticated;
-      EXCEPTION WHEN OTHERS THEN NULL;
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_schema = 'public' AND table_name = 'promoters' AND column_name = 'invite_token'
+        ) THEN
+          INSERT INTO public.promoter_invites (promoter_id, token, expires_at)
+          SELECT id, invite_token, COALESCE(invite_expires_at, now() + interval '7 days')
+          FROM public.promoters
+          WHERE invite_token IS NOT NULL
+          ON CONFLICT (token) DO NOTHING;
+
+          ALTER TABLE public.promoters DROP COLUMN IF EXISTS invite_token CASCADE;
+          ALTER TABLE public.promoters DROP COLUMN IF EXISTS invite_expires_at CASCADE;
+        END IF;
       END $$;
 
       -- 2. Drop unsafe public policies
