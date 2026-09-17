@@ -15,7 +15,8 @@ import {
   Search, 
   BarChart3,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
@@ -163,6 +164,30 @@ export default function AdminPromotersPage() {
       setPromoters((prev) =>
         prev.map((p) => (p.id === promoter.id ? { ...p, is_active: nextStatus } : p))
       );
+    }
+  };
+
+  const handleDeletePromoter = async (promoter: PromoterWithStats) => {
+    if (
+      !confirm(
+        `Supprimer définitivement le RP ${promoter.first_name} ${promoter.last_name} ?\n\nAttention : son lien /rp/${promoter.slug} cessera immédiatement de fonctionner.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/promoters?id=${promoter.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+      setPromoters((prev) => prev.filter((p) => p.id !== promoter.id));
+    } catch (err: unknown) {
+      const error = err as Error;
+      alert(error?.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -338,13 +363,20 @@ export default function AdminPromotersPage() {
                         <button
                           onClick={() => toggleStatus(p)}
                           title={p.is_active ? 'Désactiver le RP' : 'Réactiver le RP'}
-                          className={`p-1.5 rounded-lg border transition-colors ${
+                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                             p.is_active
-                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
+                              ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
                               : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
                           }`}
                         >
                           <Power className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePromoter(p)}
+                          title="Supprimer définitivement ce RP"
+                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { type Promoter, type ClubEvent } from '@/lib/types';
 import { formatFrenchDate, calculateAttendanceRate } from '@/lib/utils';
@@ -15,7 +16,8 @@ import {
   Trophy, 
   Percent, 
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
@@ -111,6 +113,32 @@ export default function PromoterDetailPage({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const router = useRouter();
+
+  const handleDelete = async () => {
+    if (!promoter) return;
+    if (
+      !confirm(
+        `Êtes-vous certain de vouloir supprimer définitivement le RP ${promoter.first_name} ${promoter.last_name} ?\n\nCette action est irréversible et son lien personnel /rp/${promoter.slug} cessera de fonctionner.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/promoters?id=${promoter.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de la suppression');
+      router.push('/admin/promoters');
+      router.refresh();
+    } catch (err: unknown) {
+      const error = err as Error;
+      alert(error?.message || 'Erreur lors de la suppression');
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-20 text-center text-gray-500 text-xs">
@@ -135,14 +163,24 @@ export default function PromoterDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Top Back link */}
-      <Link
-        href="/admin/promoters"
-        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Retour aux promoteurs</span>
-      </Link>
+      {/* Top Bar avec retour et suppression */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/admin/promoters"
+          className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Retour aux promoteurs</span>
+        </Link>
+
+        <button
+          onClick={handleDelete}
+          className="py-2 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>Supprimer ce RP</span>
+        </button>
+      </div>
 
       {/* Profil RP Card */}
       <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 sm:p-8 shadow-xl">
