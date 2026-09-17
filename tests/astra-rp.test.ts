@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { 
   generateQrToken, 
+  generateInviteToken,
   slugify, 
   calculateAttendanceRate, 
   generateCsvContent 
@@ -18,6 +19,17 @@ describe('ASTRA RP — Fonctions Utilitaires & Sécurité', () => {
     expect(token1).not.toBe(token2);
     // Pas de caractères spéciaux risqués pour les URLs
     expect(/^[a-zA-Z0-9]+$/.test(token1)).toBe(true);
+  });
+
+  it('Génère un token d\'invitation sécurisé pour l\'activation des RP', () => {
+    const token1 = generateInviteToken();
+    const token2 = generateInviteToken();
+
+    expect(token1).toBeDefined();
+    expect(token1.length).toBe(32);
+    expect(token2.length).toBe(32);
+    expect(token1).not.toBe(token2);
+    expect(/^[a-f0-9]{32}$/.test(token1)).toBe(true);
   });
 
   it('Génère des slugs URL propres pour les RP et événements', () => {

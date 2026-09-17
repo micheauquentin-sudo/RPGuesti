@@ -13,6 +13,14 @@ export function generateQrToken(): string {
 }
 
 /**
+ * Génère un token cryptographique sécurisé pour l'invitation / activation d'un RP
+ * 32 caractères hexadécimaux uniques
+ */
+export function generateInviteToken(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/**
  * Nettoie et formate une chaîne pour en faire un slug URL valide
  * Ex: "Lucas Bernard" -> "lucas-bernard"
  */
