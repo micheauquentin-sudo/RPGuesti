@@ -16,11 +16,8 @@ export default function HomePage() {
           className="w-28 h-28 sm:w-36 sm:h-36 mx-auto mb-4 object-contain drop-shadow-[0_12px_30px_rgba(229,184,92,0.3)]"
         />
 
-        <h1 className="text-4xl sm:text-5xl font-black tracking-widest text-white uppercase mb-2">
-          ASTRA
-        </h1>
-        <p className="text-sm font-bold tracking-widest text-[#e5b85c] uppercase mb-4">
-          Club Privé — Orléans
+        <p className="text-sm font-extrabold tracking-[0.25em] text-[#e5b85c] uppercase mb-4 mt-2">
+          CLUB PRIVÉ • ORLÉANS
         </p>
         <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm mx-auto">
           Portail officiel de gestion des relations publiques, inscriptions invités et contrôle d&apos;accès à l&apos;entrée.
@@ -83,9 +80,8 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* Footer */}
         <p className="text-xs text-gray-500 mt-10">
-          ASTRA Club Orléans • Système interne de contrôle d&apos;accès
+          ASTRA Orléans • Système officiel de contrôle d&apos;accès
         </p>
       </div>
     </main>

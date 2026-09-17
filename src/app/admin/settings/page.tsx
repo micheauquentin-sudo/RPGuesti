@@ -22,7 +22,7 @@ export default function AdminSettingsPage() {
             <Sparkles className="w-5 h-5 text-[#e5b85c]" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">ASTRA Club Privé</h2>
+            <h2 className="text-lg font-bold text-white">ASTRA — Club Privé</h2>
             <p className="text-xs text-[#e5b85c] font-semibold">Orléans, France</p>
           </div>
         </div>

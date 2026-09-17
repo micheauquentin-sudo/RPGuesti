@@ -45,6 +45,92 @@ const POSTER_PRESETS = [
   },
 ];
 
+type PosterFormat = 'auto' | '9:16' | '4:5' | '4:3' | 'original';
+
+interface FormatResult {
+  dataUrl: string;
+  analysisText: string;
+  resolvedFormat: string;
+}
+
+function processPosterFormat(img: HTMLImageElement, format: PosterFormat): FormatResult {
+  const nativeRatio = img.width / (img.height || 1);
+  let resolvedFormat = format;
+
+  if (format === 'auto') {
+    if (nativeRatio <= 0.65) resolvedFormat = '9:16';
+    else if (nativeRatio <= 0.95) resolvedFormat = '4:5';
+    else resolvedFormat = '4:3';
+  }
+
+  let targetW = 800;
+  let targetH = 1000;
+  let formatLabel = 'Flyer Club (4:5)';
+
+  if (resolvedFormat === '9:16') {
+    targetW = 720;
+    targetH = 1280;
+    formatLabel = 'Format Story (9:16)';
+  } else if (resolvedFormat === '4:5') {
+    targetW = 800;
+    targetH = 1000;
+    formatLabel = 'Affiche Club (4:5)';
+  } else if (resolvedFormat === '4:3') {
+    targetW = 960;
+    targetH = 720;
+    formatLabel = 'Format Standard (4:3)';
+  } else if (resolvedFormat === 'original') {
+    targetW = Math.min(img.width, 1200);
+    targetH = Math.round(targetW / nativeRatio);
+    formatLabel = 'Format Original';
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return {
+      dataUrl: img.src,
+      analysisText: `${img.width}×${img.height}px`,
+      resolvedFormat: formatLabel,
+    };
+  }
+
+  // 1. Fond ambiance flou dérivé de l'affiche (zéro barre noire brute)
+  ctx.save();
+  ctx.filter = 'blur(28px) brightness(0.52)';
+  ctx.drawImage(img, -20, -20, targetW + 40, targetH + 40);
+  ctx.restore();
+
+  // Voile sombre subtil pour contraste
+  ctx.fillStyle = 'rgba(8, 10, 16, 0.45)';
+  ctx.fillRect(0, 0, targetW, targetH);
+
+  // 2. Image nette centrée sans coupure (object-fit: contain)
+  let drawW = targetW;
+  let drawH = targetW / nativeRatio;
+  if (drawH > targetH) {
+    drawH = targetH;
+    drawW = targetH * nativeRatio;
+  }
+  const drawX = (targetW - drawW) / 2;
+  const drawY = (targetH - drawH) / 2;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  ctx.shadowBlur = 24;
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  ctx.restore();
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+  const ratioLabel = nativeRatio < 0.7 ? 'Story 9:16' : nativeRatio <= 0.95 ? 'Flyer 4:5' : nativeRatio <= 1.1 ? 'Carré' : 'Bannière 4:3';
+  const analysisText = `Image importée : ${img.width}×${img.height}px (${ratioLabel}) • Adaptée en ${formatLabel} avec centrage automatique sans coupure`;
+
+  return { dataUrl, analysisText, resolvedFormat: formatLabel };
+}
+
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +144,9 @@ export default function AdminEventsPage() {
   const [status, setStatus] = useState<EventStatus>('published');
   const [description, setDescription] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState(POSTER_PRESETS[0].url);
+  const [createRawImg, setCreateRawImg] = useState<HTMLImageElement | null>(null);
+  const [createFormat, setCreateFormat] = useState<PosterFormat>('auto');
+  const [createAnalysis, setCreateAnalysis] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -71,10 +160,13 @@ export default function AdminEventsPage() {
   const [editStatus, setEditStatus] = useState<EventStatus>('published');
   const [editDescription, setEditDescription] = useState('');
   const [editCoverImageUrl, setEditCoverImageUrl] = useState('');
+  const [editRawImg, setEditRawImg] = useState<HTMLImageElement | null>(null);
+  const [editFormat, setEditFormat] = useState<PosterFormat>('auto');
+  const [editAnalysis, setEditAnalysis] = useState<string | null>(null);
 
   // Modal Récurrence
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
-  const [recurrenceBaseName, setRecurrenceBaseName] = useState('ASTRA CLUB — SATURDAY');
+  const [recurrenceBaseName, setRecurrenceBaseName] = useState('ASTRA — SATURDAY NIGHT');
   const [recurrenceStartDate, setRecurrenceStartDate] = useState('');
   const [recurrenceWeeks, setRecurrenceWeeks] = useState(4);
   const [generatingRecurrence, setGeneratingRecurrence] = useState(false);
@@ -133,7 +225,7 @@ export default function AdminEventsPage() {
 
   const handleFilePosterUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    onSuccess: (url: string) => void
+    isEdit: boolean
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -147,31 +239,39 @@ export default function AdminEventsPage() {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 1200;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          onSuccess(dataUrl);
+        if (isEdit) {
+          setEditRawImg(img);
+          const res = processPosterFormat(img, editFormat);
+          setEditCoverImageUrl(res.dataUrl);
+          setEditAnalysis(res.analysisText);
+        } else {
+          setCreateRawImg(img);
+          const res = processPosterFormat(img, createFormat);
+          setCoverImageUrl(res.dataUrl);
+          setCreateAnalysis(res.analysisText);
         }
       };
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+  };
+
+  const changeCreateFormat = (fmt: PosterFormat) => {
+    setCreateFormat(fmt);
+    if (createRawImg) {
+      const res = processPosterFormat(createRawImg, fmt);
+      setCoverImageUrl(res.dataUrl);
+      setCreateAnalysis(res.analysisText);
+    }
+  };
+
+  const changeEditFormat = (fmt: PosterFormat) => {
+    setEditFormat(fmt);
+    if (editRawImg) {
+      const res = processPosterFormat(editRawImg, fmt);
+      setEditCoverImageUrl(res.dataUrl);
+      setEditAnalysis(res.analysisText);
+    }
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
@@ -224,6 +324,9 @@ export default function AdminEventsPage() {
       setName('');
       setEventDate('');
       setDescription('');
+      setCreateRawImg(null);
+      setCreateFormat('auto');
+      setCreateAnalysis(null);
       loadEvents();
     } catch (err: unknown) {
       const error = err as Error;
@@ -242,6 +345,9 @@ export default function AdminEventsPage() {
     setEditStatus(ev.status);
     setEditDescription(ev.description || '');
     setEditCoverImageUrl(ev.cover_image_url || POSTER_PRESETS[0].url);
+    setEditRawImg(null);
+    setEditFormat('auto');
+    setEditAnalysis(null);
     setEditModalOpen(true);
   };
 
@@ -613,21 +719,59 @@ export default function AdminEventsPage() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => handleFilePosterUpload(e, setCoverImageUrl)}
+                      onChange={(e) => handleFilePosterUpload(e, false)}
                     />
                   </label>
                 </div>
 
+                {/* Analyse intelligente et Sélecteur de Ratio/Format */}
+                {createAnalysis && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-[#141724] border border-[#e5b85c]/30 text-xs">
+                    <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] mb-2">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span>{createAnalysis}</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-gray-400 mr-1 font-medium">Format cible :</span>
+                      {[
+                        { id: 'auto', label: '⚡ Auto' },
+                        { id: '9:16', label: '📱 9:16 Story' },
+                        { id: '4:5', label: '🎨 4:5 Flyer' },
+                        { id: '4:3', label: '🖼️ 4:3' },
+                        { id: 'original', label: '📐 Original' },
+                      ].map((fmt) => (
+                        <button
+                          key={fmt.id}
+                          type="button"
+                          onClick={() => changeCreateFormat(fmt.id as PosterFormat)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            createFormat === fmt.id
+                              ? 'bg-[#e5b85c] text-black shadow'
+                              : 'bg-[#1b1f2e] text-gray-300 hover:text-white border border-[#272e42]'
+                          }`}
+                        >
+                          {fmt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Prévisualisation de l'affiche sélectionnée si présente */}
                 {coverImageUrl && (
-                  <div className="relative mb-2.5 h-28 rounded-xl overflow-hidden border border-[#e5b85c]/40 group">
+                  <div className="relative mb-2.5 h-36 rounded-xl overflow-hidden border border-[#e5b85c]/40 group bg-black/40 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={coverImageUrl} alt="Aperçu affiche" className="w-full h-full object-cover" />
+                    <img src={coverImageUrl} alt="Aperçu affiche" className="w-full h-full object-contain" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <span className="text-[11px] font-bold text-white bg-black/70 px-2 py-1 rounded">Affiche active</span>
                       <button
                         type="button"
-                        onClick={() => setCoverImageUrl('')}
+                        onClick={() => {
+                          setCoverImageUrl('');
+                          setCreateRawImg(null);
+                          setCreateAnalysis(null);
+                        }}
                         className="px-2 py-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded text-[11px] font-bold cursor-pointer"
                       >
                         Retirer
@@ -785,21 +929,59 @@ export default function AdminEventsPage() {
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => handleFilePosterUpload(e, setEditCoverImageUrl)}
+                      onChange={(e) => handleFilePosterUpload(e, true)}
                     />
                   </label>
                 </div>
 
+                {/* Analyse intelligente et Sélecteur de Ratio/Format */}
+                {editAnalysis && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-[#141724] border border-[#e5b85c]/30 text-xs">
+                    <div className="flex items-center gap-1.5 text-[#e5b85c] font-bold text-[11px] mb-2">
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <span>{editAnalysis}</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-gray-400 mr-1 font-medium">Format cible :</span>
+                      {[
+                        { id: 'auto', label: '⚡ Auto' },
+                        { id: '9:16', label: '📱 9:16 Story' },
+                        { id: '4:5', label: '🎨 4:5 Flyer' },
+                        { id: '4:3', label: '🖼️ 4:3' },
+                        { id: 'original', label: '📐 Original' },
+                      ].map((fmt) => (
+                        <button
+                          key={fmt.id}
+                          type="button"
+                          onClick={() => changeEditFormat(fmt.id as PosterFormat)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            editFormat === fmt.id
+                              ? 'bg-[#e5b85c] text-black shadow'
+                              : 'bg-[#1b1f2e] text-gray-300 hover:text-white border border-[#272e42]'
+                          }`}
+                        >
+                          {fmt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Prévisualisation de l'affiche sélectionnée si présente */}
                 {editCoverImageUrl && (
-                  <div className="relative mb-2.5 h-28 rounded-xl overflow-hidden border border-[#e5b85c]/40 group">
+                  <div className="relative mb-2.5 h-36 rounded-xl overflow-hidden border border-[#e5b85c]/40 group bg-black/40 flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={editCoverImageUrl} alt="Aperçu affiche" className="w-full h-full object-cover" />
+                    <img src={editCoverImageUrl} alt="Aperçu affiche" className="w-full h-full object-contain" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <span className="text-[11px] font-bold text-white bg-black/70 px-2 py-1 rounded">Affiche actuelle</span>
                       <button
                         type="button"
-                        onClick={() => setEditCoverImageUrl('')}
+                        onClick={() => {
+                          setEditCoverImageUrl('');
+                          setEditRawImg(null);
+                          setEditAnalysis(null);
+                        }}
                         className="px-2 py-1 bg-rose-600/90 hover:bg-rose-600 text-white rounded text-[11px] font-bold cursor-pointer"
                       >
                         Retirer

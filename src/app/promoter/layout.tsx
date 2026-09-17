@@ -61,7 +61,7 @@ export default function PromoterLayout({
 
       {/* Footer */}
       <footer className="py-6 text-center text-xs text-gray-500 border-t border-[#141724]">
-        <p>ASTRA Club Orléans • Portail RP & Concours Annuel</p>
+        <p>ASTRA Orléans • Portail RP & Concours Annuel</p>
         <p className="text-[10px] text-gray-600 mt-1">Seules les entrées physiques validées au scan comptent pour le classement.</p>
       </footer>
     </div>

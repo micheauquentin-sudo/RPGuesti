@@ -137,20 +137,17 @@ export default function PromoterPublicPage({
       <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Header Official ASTRA Logo + RP */}
+        {/* Header Official ASTRA Transparent Logo + RP */}
         <div className="text-center mb-6">
           <div className="flex flex-col items-center justify-center mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/astra-logo.png"
               alt="ASTRA Logo Officiel"
-              className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_10px_25px_rgba(229,184,92,0.25)] mb-1 animate-in fade-in zoom-in-95 duration-500"
+              className="w-28 sm:w-36 h-auto object-contain drop-shadow-[0_12px_28px_rgba(229,184,92,0.25)] animate-in fade-in zoom-in-95 duration-500"
             />
-            <h1 className="text-2xl sm:text-3xl font-black tracking-widest text-white uppercase">
-              ASTRA
-            </h1>
-            <p className="text-[11px] uppercase tracking-widest text-[#e5b85c] font-bold">
-              Club Privé — Orléans
+            <p className="text-[11px] uppercase tracking-widest text-[#e5b85c] font-black mt-2">
+              ORLÉANS
             </p>
           </div>
 
@@ -198,22 +195,32 @@ export default function PromoterPublicPage({
               </span>
             </div>
 
-            {/* Event Poster if available */}
+            {/* Event Poster adapté (9:16 / 4:5 / 4:3 centré avec ambiance lumineuse sans coupure) */}
             {currentEvent.cover_image_url && (
-              <div className="relative h-48 w-full overflow-hidden border-b border-[#232738]">
+              <div className="relative w-full overflow-hidden border-b border-[#232738] bg-[#07080c] flex items-center justify-center min-h-[220px]">
+                {/* Lueur d'ambiance floue dérivée de l'affiche */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentEvent.cover_image_url}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-transparent to-black/60 z-0" />
+
+                {/* Affiche nette centrée à ratio préservé */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentEvent.cover_image_url}
                   alt={currentEvent.name}
-                  className="w-full h-full object-cover object-center"
+                  className="relative z-10 w-full max-h-[380px] sm:max-h-[440px] object-contain mx-auto drop-shadow-2xl"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-transparent" />
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-[#e5b85c]/40 shadow">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/astra-logo.png" alt="ASTRA" className="w-3.5 h-3.5 object-contain" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#e5b85c]">
-                      ASTRA CLUB
+                      ORLÉANS
                     </span>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500 text-black shadow">

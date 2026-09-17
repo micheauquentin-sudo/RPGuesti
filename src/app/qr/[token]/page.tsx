@@ -122,23 +122,20 @@ async function generateFullTicketImage(
   ctx.lineTo(886, 1446 - cornerSize);
   ctx.stroke();
 
-  // 3. Dessin du Logo Officiel 3D ASTRA
+  // 3. Dessin du Logo Officiel 3D ASTRA Transparent
   try {
     const logoImg = await loadImage('/astra-logo.png');
-    ctx.drawImage(logoImg, 385, 45, 130, 130);
+    // Dessin centré du logo haute définition
+    ctx.drawImage(logoImg, 360, 42, 180, 154);
   } catch (err) {
     console.warn('Logo ASTRA local non chargé, fallback texte', err);
   }
 
-  // Typo ASTRA Club
+  // Sous-titre officiel
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '900 24px system-ui, -apple-system, sans-serif';
-  ctx.fillText('A S T R A', 450, 205);
-
   ctx.fillStyle = '#e5b85c';
-  ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
-  ctx.fillText('CLUB PRIVÉ • ORLÉANS', 450, 226);
+  ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText('ORLÉANS', 450, 222);
 
   // 4. BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ
   const bannerY = 246;
@@ -162,11 +159,27 @@ async function generateFullTicketImage(
       ctx.save();
       drawRoundedRect(ctx, 45, currentY, 810, 220, 16);
       ctx.clip();
-      ctx.drawImage(posterImg, 45, currentY, 810, 220);
 
-      // Dégradé sombre par-dessus l'affiche pour contraste
-      const posterGrad = ctx.createLinearGradient(45, currentY + 70, 45, currentY + 220);
-      posterGrad.addColorStop(0, 'rgba(15, 17, 24, 0.2)');
+      // Fond ambiant pour combler les côtés harmonieusement
+      ctx.drawImage(posterImg, 45, currentY, 810, 220);
+      ctx.fillStyle = 'rgba(10, 12, 18, 0.72)';
+      ctx.fillRect(45, currentY, 810, 220);
+
+      // Affiche nette centrée avec respect strict du ratio (sans déformation)
+      const pRatio = posterImg.width / (posterImg.height || 1);
+      let fitW = 810;
+      let fitH = 810 / pRatio;
+      if (fitH > 220) {
+        fitH = 220;
+        fitW = 220 * pRatio;
+      }
+      const fitX = 45 + (810 - fitW) / 2;
+      const fitY = currentY + (220 - fitH) / 2;
+      ctx.drawImage(posterImg, fitX, fitY, fitW, fitH);
+
+      // Dégradé sombre par-dessus l'affiche pour contraste du texte
+      const posterGrad = ctx.createLinearGradient(45, currentY + 100, 45, currentY + 220);
+      posterGrad.addColorStop(0, 'rgba(15, 17, 24, 0.1)');
       posterGrad.addColorStop(1, 'rgba(15, 17, 24, 0.96)');
       ctx.fillStyle = posterGrad;
       ctx.fillRect(45, currentY, 810, 220);
@@ -289,7 +302,7 @@ async function generateFullTicketImage(
   // 9. Pied de Page Billet Officiel
   ctx.fillStyle = '#64748b';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('ASTRA CLUB ORLÉANS • BILLET OFFICIEL NOMINATIF NUMÉRISÉ', 450, 1416);
+  ctx.fillText('ASTRA ORLÉANS • BILLET OFFICIEL NOMINATIF NUMÉRISÉ', 450, 1416);
 
   return canvas.toDataURL('image/png');
 }
@@ -518,24 +531,33 @@ export default function GuestQrPassPage({
             </div>
           )}
 
-          {/* Event Poster Banner & Official Logo */}
+          {/* Event Poster Banner & Official Logo Adapté */}
           {registration.event.cover_image_url ? (
-            <div className="relative h-52 w-full overflow-hidden border-b border-[#232738]">
+            <div className="relative w-full overflow-hidden border-b border-[#232738] bg-[#07080c] flex items-center justify-center min-h-[220px]">
+              {/* Lueur d'ambiance floue dérivée de l'affiche */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={registration.event.cover_image_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-transparent to-black/70 z-0" />
+
+              {/* Affiche nette centrée à ratio préservé */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={registration.event.cover_image_url}
                 alt={registration.event.name}
-                className={`w-full h-full object-cover object-center ${isEventExpired ? 'grayscale contrast-125 opacity-60' : ''}`}
+                className={`relative z-10 w-full max-h-[380px] sm:max-h-[440px] object-contain mx-auto drop-shadow-2xl ${isEventExpired ? 'grayscale contrast-125 opacity-60' : ''}`}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0f1118] via-[#0f1118]/40 to-black/70" />
-              
+
               {/* Top badges with Logo */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-[#e5b85c]/40 shadow">
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-[#e5b85c]/40 shadow">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/astra-logo.png" alt="ASTRA" className="w-4 h-4 object-contain" />
+                  <img src="/astra-logo.png" alt="ASTRA" className="w-3.5 h-3.5 object-contain" />
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#e5b85c]">
-                    ASTRA CLUB
+                    ORLÉANS
                   </span>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow ${
@@ -545,7 +567,7 @@ export default function GuestQrPassPage({
                 </span>
               </div>
 
-              <div className="absolute bottom-3 left-4 right-4">
+              <div className="absolute bottom-3 left-4 right-4 z-20">
                 <p className="text-[11px] font-bold text-[#e5b85c] uppercase tracking-wider">Soirée Officielle</p>
                 <h2 className="text-lg font-black text-white leading-tight drop-shadow truncate">
                   {registration.event.name}
@@ -558,13 +580,10 @@ export default function GuestQrPassPage({
               <img
                 src="/astra-logo.png"
                 alt="ASTRA Logo"
-                className="w-16 h-16 mx-auto mb-2 object-contain drop-shadow-[0_4px_16px_rgba(229,184,92,0.25)]"
+                className="w-24 h-auto mx-auto mb-2 object-contain drop-shadow-[0_4px_16px_rgba(229,184,92,0.25)]"
               />
-              <h1 className="text-2xl font-black tracking-widest text-white uppercase">
-                ASTRA
-              </h1>
               <p className="text-[10px] tracking-widest text-[#e5b85c] uppercase font-bold">
-                Pass Invité • Entrée 100% Gratuite
+                Pass Invité • Entrée 100% Gratuite — Orléans
               </p>
             </div>
           )}
@@ -714,7 +733,7 @@ export default function GuestQrPassPage({
         <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-gray-500">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/astra-logo.png" alt="ASTRA" className="w-3.5 h-3.5 object-contain" />
-          <span>ASTRA Club Orléans • Billet officiel nominatif vérifié</span>
+          <span>Billet officiel nominatif vérifié — Orléans</span>
         </div>
       </div>
     </div>

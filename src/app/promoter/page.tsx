@@ -34,122 +34,75 @@ export interface AvatarItem {
 }
 
 export const AVATAR_CATALOG: AvatarItem[] = [
-  // CLUB & COSMIQUE (Boule à facette 3D & Planète Saturne)
+  // PERSONNAGES 3D CARTOON
   {
-    name: 'Boule à facette 3D',
+    name: 'Le Boss VIP',
     category: 'club',
-    url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=400&auto=format&fit=crop',
+    url: '/avatars/avatar-boss.jpg',
   },
   {
-    name: 'Planète Saturne 3D',
+    name: 'La Reine VIP',
     category: 'club',
-    url: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?q=80&w=400&auto=format&fit=crop',
+    url: '/avatars/avatar-queen.jpg',
   },
   {
-    name: 'Gold VIP ASTRA',
+    name: 'Le DJ Club Star',
     category: 'club',
-    url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400&auto=format&fit=crop',
+    url: '/avatars/avatar-dj.jpg',
   },
   {
-    name: 'Nightlife DJ Club',
+    name: 'Le Bad Boy Stylé',
     category: 'club',
-    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop',
+    url: '/avatars/avatar-badboy.jpg',
   },
   {
-    name: 'Laser Show Club',
+    name: 'La Gameuse Cyberpunk',
     category: 'club',
-    url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=400&auto=format&fit=crop',
+    url: '/avatars/avatar-gamer.jpg',
+  },
+  {
+    name: 'L’Ambianceur Festif',
+    category: 'club',
+    url: '/avatars/avatar-party.jpg',
   },
 
-  // JEUX VIDÉO SUPER CONNUS
+  // ANIMAUX 3D CARTOON
   {
-    name: 'Cyberpunk Neon V',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop',
+    name: 'Le Lion Roi VIP',
+    category: 'animals',
+    url: '/avatars/avatar-lion.jpg',
   },
   {
-    name: 'Master Chief Spartan',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&auto=format&fit=crop',
+    name: 'Le Tigre Nightlife',
+    category: 'animals',
+    url: '/avatars/avatar-tiger.jpg',
   },
   {
-    name: 'Guerrier Divin (Kratos)',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=400&auto=format&fit=crop',
+    name: 'Le Bouledogue Swag',
+    category: 'animals',
+    url: '/avatars/avatar-bulldog.jpg',
   },
   {
-    name: 'Pixel Star (Mario)',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=400&auto=format&fit=crop',
+    name: 'La Panthère Élégante',
+    category: 'animals',
+    url: '/avatars/avatar-panther.jpg',
   },
   {
-    name: 'Ultra Speed (Sonic)',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Electric Star (Pikachu)',
-    category: 'gaming',
-    url: 'https://images.unsplash.com/photo-1613771404784-3a5686aa2be3?q=80&w=400&auto=format&fit=crop',
+    name: 'Le Chimpanzé Cool',
+    category: 'animals',
+    url: '/avatars/avatar-chimp.jpg',
   },
 
-  // PERSONNAGES DE FILMS LÉGENDAIRES
+  // THÈMES CLUB & COSMIQUES 3D CARTOON
   {
-    name: 'Neo (Matrix Cyber)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=400&auto=format&fit=crop',
+    name: 'Boule à Facettes DJ',
+    category: 'club',
+    url: '/avatars/avatar-disco.jpg',
   },
   {
-    name: 'Batman (Dark Knight)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Le Parrain (Corleone)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Thomas Shelby (Peaky)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Tony Montana (Scarface)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Joker (Wild Card)',
-    category: 'cinema',
-    url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=400&auto=format&fit=crop',
-  },
-
-  // ANIMAUX EN 3D CARTOON
-  {
-    name: 'Lion Roi 3D',
-    category: 'animals',
-    url: 'https://images.unsplash.com/photo-1534188753412-3e26d0d618d6?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Singe Cyber 3D',
-    category: 'animals',
-    url: 'https://images.unsplash.com/photo-1540573133985-87b6da6d54a9?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Panda DJ 3D',
-    category: 'animals',
-    url: 'https://images.unsplash.com/photo-1564349683136-77e08dba1ef7?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Loup Alpha 3D',
-    category: 'animals',
-    url: 'https://images.unsplash.com/photo-1564419320461-6870880221ad?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    name: 'Tigre Gold 3D',
-    category: 'animals',
-    url: 'https://images.unsplash.com/photo-1534177616072-ef7dc120449d?q=80&w=400&auto=format&fit=crop',
+    name: 'Planète Saturne Cosmique',
+    category: 'club',
+    url: '/avatars/avatar-saturn.jpg',
   },
 ];
 
@@ -891,29 +844,7 @@ export default function PromoterDashboardPage() {
                         : 'bg-[#181b26] text-gray-400 hover:text-white'
                     }`}
                   >
-                    ✨ Club & Espace
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAvatarCategory('gaming')}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                      avatarCategory === 'gaming'
-                        ? 'bg-[#e5b85c] text-black shadow'
-                        : 'bg-[#181b26] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    🎮 Jeux Vidéo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAvatarCategory('cinema')}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                      avatarCategory === 'cinema'
-                        ? 'bg-[#e5b85c] text-black shadow'
-                        : 'bg-[#181b26] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    🎬 Films Légendaires
+                    🎭 Personnages Cartoons
                   </button>
                   <button
                     type="button"
@@ -924,7 +855,18 @@ export default function PromoterDashboardPage() {
                         : 'bg-[#181b26] text-gray-400 hover:text-white'
                     }`}
                   >
-                    🦁 Animaux 3D
+                    🦁 Animaux Cartoons
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvatarCategory('cinema')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      avatarCategory === 'cinema'
+                        ? 'bg-[#e5b85c] text-black shadow'
+                        : 'bg-[#181b26] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    ✨ Club & Saturne 3D
                   </button>
                 </div>
 
