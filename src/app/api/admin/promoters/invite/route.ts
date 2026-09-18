@@ -2,63 +2,8 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyAdmin } from '@/lib/api-auth';
 import { generateInviteToken } from '@/lib/utils';
-import pg from 'pg';
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Helper pour s'assurer que les colonnes d'invitation existent
-let migrationDone = false;
-async function ensureColumnsExist() {
-  if (migrationDone) return;
-  const connectionString = process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL;
-  if (!connectionString) return;
-
-  try {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    const cleanUrl = connectionString.split('?')[0];
-    const client = new pg.Client({
-      connectionString: cleanUrl,
-      ssl: { rejectUnauthorized: false },
-    });
-    await client.connect();
-    await client.query(`
-      ALTER TABLE public.promoters 
-        ADD COLUMN IF NOT EXISTS email TEXT,
-        ADD COLUMN IF NOT EXISTS invite_token TEXT UNIQUE,
-        ADD COLUMN IF NOT EXISTS invite_expires_at TIMESTAMPTZ;
-      CREATE INDEX IF NOT EXISTS idx_promoters_invite_token 
-        ON public.promoters(invite_token) 
-        WHERE invite_token IS NOT NULL;
-
-      -- Revoke sensitive invite columns from anon and authenticated
-      DO $$
-      BEGIN
-        REVOKE SELECT (invite_token, invite_expires_at) ON public.promoters FROM anon, authenticated;
-      EXCEPTION WHEN OTHERS THEN NULL;
-      END $$;
-
-      -- Drop unsafe public policies
-      DROP POLICY IF EXISTS "Creation guest autorisee" ON public.guests;
-      DROP POLICY IF EXISTS "Lecture registration par token pour pass invité" ON public.registrations;
-      DROP POLICY IF EXISTS "Creation registration autorisee" ON public.registrations;
-
-      -- Secure registrations policy: RP reads own, staff/admin reads all
-      DROP POLICY IF EXISTS "RP lecture de ses propres registrations" ON public.registrations;
-      CREATE POLICY "RP lecture de ses propres registrations"
-      ON public.registrations FOR SELECT
-      USING (
-          promoter_id IN (
-              SELECT id FROM public.promoters WHERE profile_id = auth.uid()
-          ) OR public.is_staff_or_admin()
-      );
-    `);
-    await client.end();
-    migrationDone = true;
-  } catch (err) {
-    console.warn('Auto-migration invite columns warning:', err);
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -69,8 +14,6 @@ export async function POST(request: Request) {
         { status: 403 }
       );
     }
-
-    await ensureColumnsExist();
 
     const body = await request.json();
     const { action, promoter_id, email, password } = body;
