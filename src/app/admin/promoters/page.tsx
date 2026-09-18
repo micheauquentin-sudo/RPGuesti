@@ -60,6 +60,7 @@ export default function AdminPromotersPage() {
   const [creationMode, setCreationMode] = useState<'invite' | 'direct'>('invite');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [pseudo, setPseudo] = useState('');
   const [instagram, setInstagram] = useState('');
   const [customSlug, setCustomSlug] = useState('');
   const [autoSlug, setAutoSlug] = useState(true);
@@ -140,13 +141,13 @@ export default function AdminPromotersPage() {
     loadPromoters();
   }, []);
 
-  // Slug automatique quand on tape le nom
+  // Slug automatique quand on tape le nom ou le pseudo
   useEffect(() => {
     if (autoSlug) {
-      const generated = slugify(`${firstName} ${lastName}`);
+      const generated = slugify(pseudo.trim() || `${firstName} ${lastName}`);
       setCustomSlug(generated);
     }
-  }, [firstName, lastName, autoSlug]);
+  }, [firstName, lastName, pseudo, autoSlug]);
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$';
@@ -179,6 +180,7 @@ export default function AdminPromotersPage() {
         .insert({
           first_name: firstName.trim(),
           last_name: lastName.trim(),
+          pseudo: pseudo.trim() || null,
           instagram_handle: cleanInsta || null,
           slug: cleanSlug,
           email: cleanEmail,
@@ -193,6 +195,10 @@ export default function AdminPromotersPage() {
         }
         throw insertError;
       }
+
+      const promoterDisplayName = newPromoter.pseudo
+        ? `${newPromoter.pseudo} (${newPromoter.first_name} ${newPromoter.last_name})`
+        : `${newPromoter.first_name} ${newPromoter.last_name}`;
 
       // 2. Traitement selon le mode d'accès
       if (creationMode === 'invite') {
@@ -214,7 +220,7 @@ export default function AdminPromotersPage() {
 
         // Ouvrir modale de succès avec le lien
         setInviteModalData({
-          promoterName: `${newPromoter.first_name} ${newPromoter.last_name}`,
+          promoterName: promoterDisplayName,
           slug: newPromoter.slug,
           inviteUrl: inviteData.invite_url,
           email: cleanEmail,
@@ -240,7 +246,7 @@ export default function AdminPromotersPage() {
 
         // Ouvrir modale de succès direct
         setDirectModalData({
-          promoterName: `${newPromoter.first_name} ${newPromoter.last_name}`,
+          promoterName: promoterDisplayName,
           slug: newPromoter.slug,
           email: cleanEmail!,
           password: promoterPassword,
@@ -257,6 +263,7 @@ export default function AdminPromotersPage() {
   const resetForm = () => {
     setFirstName('');
     setLastName('');
+    setPseudo('');
     setInstagram('');
     setCustomSlug('');
     setPromoterEmail('');
@@ -280,7 +287,7 @@ export default function AdminPromotersPage() {
       if (!inviteRes.ok) throw new Error(inviteData.error || 'Erreur');
 
       setInviteModalData({
-        promoterName: `${p.first_name} ${p.last_name}`,
+        promoterName: p.pseudo ? `${p.pseudo} (${p.first_name} ${p.last_name})` : `${p.first_name} ${p.last_name}`,
         slug: p.slug,
         inviteUrl: inviteData.invite_url,
         email: p.email,
@@ -306,9 +313,10 @@ export default function AdminPromotersPage() {
   };
 
   const handleDeletePromoter = async (promoter: PromoterWithStats) => {
+    const displayName = promoter.pseudo ? `${promoter.pseudo} (${promoter.first_name} ${promoter.last_name})` : `${promoter.first_name} ${promoter.last_name}`;
     if (
       !confirm(
-        `Supprimer définitivement le RP ${promoter.first_name} ${promoter.last_name} ?\n\nAttention : son lien /rp/${promoter.slug} cessera immédiatement de fonctionner.`
+        `Supprimer définitivement le RP ${displayName} ?\n\nAttention : son lien /rp/${promoter.slug} cessera immédiatement de fonctionner.`
       )
     ) {
       return;
@@ -342,6 +350,7 @@ export default function AdminPromotersPage() {
     return (
       p.first_name.toLowerCase().includes(q) ||
       p.last_name.toLowerCase().includes(q) ||
+      (p.pseudo && p.pseudo.toLowerCase().includes(q)) ||
       p.slug.toLowerCase().includes(q) ||
       (p.instagram_handle && p.instagram_handle.toLowerCase().includes(q))
     );
@@ -420,11 +429,18 @@ export default function AdminPromotersPage() {
                     <td className="py-4 px-5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-[#1b1f2e] border border-[#2d334a] flex items-center justify-center font-bold text-xs text-[#e5b85c]">
-                          {p.first_name[0]}{p.last_name[0]}
+                          {p.pseudo ? p.pseudo.slice(0, 2).toUpperCase() : `${p.first_name[0]}${p.last_name[0]}`}
                         </div>
                         <div>
                           <div className="font-bold text-white text-sm">
-                            {p.first_name} {p.last_name}
+                            {p.pseudo ? (
+                              <span className="flex items-center gap-1.5 flex-wrap">
+                                <span>{p.pseudo}</span>
+                                <span className="text-xs text-gray-400 font-normal">({p.first_name} {p.last_name})</span>
+                              </span>
+                            ) : (
+                              `${p.first_name} ${p.last_name}`
+                            )}
                           </div>
                           {p.instagram_handle && (
                             <span className="text-[11px] text-gray-400 flex items-center gap-1">
@@ -618,6 +634,22 @@ export default function AdminPromotersPage() {
                     className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-gray-300 mb-1">
+                  Pseudo / Nom de scène <span className="text-gray-400 font-normal text-xs">(Optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={pseudo}
+                  onChange={(e) => setPseudo(e.target.value)}
+                  placeholder="Ex: DJ Alex, MC Shadow..."
+                  className="w-full px-3 py-2 bg-[#151822] border border-[#24283b] rounded-xl text-white focus:outline-none focus:border-[#e5b85c]"
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Prioritaire sur prénom &amp; nom pour les clubbers et utilisé par défaut pour générer le lien /rp/[pseudo].
+                </p>
               </div>
 
               <div>

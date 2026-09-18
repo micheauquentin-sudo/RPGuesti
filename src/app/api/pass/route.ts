@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         status,
         guest:guests(first_name, last_name),
         event:events(name, event_date, start_time, end_time, cover_image_url),
-        promoter:promoters(first_name, last_name, avatar_url, slug)
+        promoter:promoters(first_name, last_name, pseudo, avatar_url, slug)
       `)
       .eq('qr_token', token)
       .maybeSingle();

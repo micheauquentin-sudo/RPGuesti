@@ -32,6 +32,7 @@ interface EventShareModalProps {
     first_name: string;
     last_name: string;
     slug: string;
+    pseudo?: string | null;
   };
   upcomingEvent: UpcomingEvent | null;
   promoterPublicUrl: string;
@@ -86,7 +87,7 @@ export default function EventShareModal({
       try {
         await navigator.share({
           title: `Invitation ASTRA — ${eventName}`,
-          text: `Entrée 100% gratuite pour la soirée "${eventName}" à l'ASTRA Club avec le pass de ${promoter.first_name} !`,
+          text: `Entrée 100% gratuite pour la soirée "${eventName}" à l'ASTRA Club avec le pass de ${promoter.pseudo || promoter.first_name} !`,
           url: promoterPublicUrl,
         });
       } catch {

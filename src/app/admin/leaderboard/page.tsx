@@ -115,6 +115,7 @@ export default function AdminLeaderboardPage() {
             promoter_id: p.id,
             first_name: p.first_name,
             last_name: p.last_name,
+            pseudo: p.pseudo,
             instagram_handle: p.instagram_handle,
             slug: p.slug,
             avatar_url: p.avatar_url,
@@ -244,7 +245,7 @@ export default function AdminLeaderboardPage() {
             </span>
             <div>
               <h3 className="text-lg font-bold text-white">
-                {top3[1].first_name} {top3[1].last_name}
+                {top3[1].pseudo || `${top3[1].first_name} ${top3[1].last_name}`}
               </h3>
               {top3[1].instagram_handle && (
                 <p className="text-xs text-gray-400">@{top3[1].instagram_handle}</p>
@@ -266,7 +267,7 @@ export default function AdminLeaderboardPage() {
             </span>
             <div>
               <h3 className="text-xl font-black text-white">
-                {top3[0].first_name} {top3[0].last_name}
+                {top3[0].pseudo || `${top3[0].first_name} ${top3[0].last_name}`}
               </h3>
               {top3[0].instagram_handle && (
                 <p className="text-xs text-[#e5b85c]">@{top3[0].instagram_handle}</p>
@@ -285,7 +286,7 @@ export default function AdminLeaderboardPage() {
             </span>
             <div>
               <h3 className="text-lg font-bold text-white">
-                {top3[2].first_name} {top3[2].last_name}
+                {top3[2].pseudo || `${top3[2].first_name} ${top3[2].last_name}`}
               </h3>
               {top3[2].instagram_handle && (
                 <p className="text-xs text-gray-400">@{top3[2].instagram_handle}</p>
@@ -347,7 +348,14 @@ export default function AdminLeaderboardPage() {
                     {/* RP */}
                     <td className="py-4 px-5">
                       <div className="font-bold text-white text-sm">
-                        {item.first_name} {item.last_name}
+                        {item.pseudo ? (
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span>{item.pseudo}</span>
+                            <span className="text-xs text-gray-400 font-normal">({item.first_name} {item.last_name})</span>
+                          </span>
+                        ) : (
+                          `${item.first_name} ${item.last_name}`
+                        )}
                       </div>
                       {item.instagram_handle && (
                         <span className="text-[11px] text-gray-400 flex items-center gap-1">

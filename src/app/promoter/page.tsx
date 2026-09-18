@@ -32,7 +32,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
-import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
+import { formatFrenchDate, formatFrenchTime, slugify } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { getPromoterRank } from '@/lib/promoter-ranks';
 import EventShareModal from '@/components/promoter/EventShareModal';
@@ -122,6 +122,7 @@ interface PromoterData {
   id: string;
   first_name: string;
   last_name: string;
+  pseudo?: string | null;
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;
@@ -132,6 +133,8 @@ interface LeaderboardItem {
   id: string;
   first_name: string;
   last_name: string;
+  pseudo?: string | null;
+  name?: string;
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;
@@ -189,6 +192,7 @@ export default function PromoterDashboardPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
+  const [editPseudo, setEditPseudo] = useState('');
   const [editInstagram, setEditInstagram] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [avatarCategory, setAvatarCategory] = useState<'all' | 'club' | 'gaming' | 'cinema' | 'animals'>('all');
@@ -250,6 +254,7 @@ export default function PromoterDashboardPage() {
       if (data.promoter) {
         setEditFirstName(data.promoter.first_name);
         setEditLastName(data.promoter.last_name);
+        setEditPseudo(data.promoter.pseudo || '');
         setEditInstagram(data.promoter.instagram_handle || '');
         setEditAvatarUrl(data.promoter.avatar_url || '');
       }
@@ -396,6 +401,11 @@ export default function PromoterDashboardPage() {
     window.open(`sms:?body=${msg}`, '_blank');
   };
 
+  const computedSlug = editPseudo.trim() 
+    ? slugify(editPseudo.trim()) 
+    : slugify(`${editFirstName.trim()} ${editLastName.trim()}`);
+  const isSlugChanging = Boolean(promoter && computedSlug && computedSlug !== promoter.slug);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!promoter) return;
@@ -410,6 +420,7 @@ export default function PromoterDashboardPage() {
           promoter_id: promoter.id,
           first_name: editFirstName,
           last_name: editLastName,
+          pseudo: editPseudo,
           instagram_handle: editInstagram,
           avatar_url: editAvatarUrl,
         }),
@@ -419,7 +430,10 @@ export default function PromoterDashboardPage() {
       if (!res.ok) throw new Error(data.error || 'Erreur lors de la mise à jour.');
 
       setPromoter(data.promoter);
-      setProfileMsg({ type: 'success', text: 'Profil mis à jour avec succès !' });
+      setProfileMsg({ 
+        type: 'success', 
+        text: data.message || 'Profil mis à jour avec succès !' 
+      });
 
       try {
         confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
@@ -431,7 +445,7 @@ export default function PromoterDashboardPage() {
         setEditModalOpen(false);
         setProfileMsg(null);
         loadData();
-      }, 1000);
+      }, data.slug_changed ? 3000 : 1200);
     } catch (err: unknown) {
       const error = err as Error;
       setProfileMsg({ type: 'error', text: error?.message || 'Erreur de mise à jour' });
@@ -522,10 +536,15 @@ export default function PromoterDashboardPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-center sm:justify-start gap-2.5">
+              <div className="flex flex-col sm:flex-row items-center sm:items-baseline justify-center sm:justify-start gap-1 sm:gap-2.5">
                 <h1 className="text-2xl font-black text-white">
-                  {promoter.first_name} {promoter.last_name}
+                  {promoter.pseudo || `${promoter.first_name} ${promoter.last_name}`}
                 </h1>
+                {promoter.pseudo && (
+                  <span className="text-xs text-gray-400 font-medium">
+                    ({promoter.first_name} {promoter.last_name})
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center justify-center sm:justify-start gap-3 mt-1.5 text-xs text-gray-400">
@@ -1286,7 +1305,7 @@ export default function PromoterDashboardPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className={`font-bold text-sm ${isMe ? 'text-[#e5b85c]' : 'text-white'}`}>
-                        {item.first_name} {item.last_name}
+                        {item.name || item.pseudo || `${item.first_name} ${item.last_name}`}
                       </span>
                       {isMe && (
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#e5b85c] text-black">
@@ -1521,6 +1540,42 @@ export default function PromoterDashboardPage() {
                   />
                 </div>
               </div>
+
+              {/* Pseudo / Nom de scène (Optionnel) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-bold text-gray-300 uppercase tracking-wider">
+                    Pseudo / Nom de scène (Optionnel)
+                  </label>
+                  <span className="text-[10px] text-[#e5b85c] font-bold">Prioritaire sur prénom &amp; nom</span>
+                </div>
+                <input
+                  type="text"
+                  value={editPseudo}
+                  onChange={(e) => setEditPseudo(e.target.value)}
+                  placeholder="Ex: DJ Mishow, Le Boss, Alex..."
+                  className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Si vous renseignez un pseudo, il remplacera votre prénom et nom sur la page publique et vos pass invités.
+                </p>
+              </div>
+
+              {/* Avertissement dynamique en direct si le lien RP / slug change */}
+              {isSlugChanging && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex gap-3 items-start animate-in fade-in duration-200 shadow-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-amber-200">⚠️ Attention : Votre lien d&apos;invitation va changer</p>
+                    <p className="text-[11px] leading-relaxed text-amber-300/90">
+                      Votre nouveau lien RP deviendra <span className="font-mono font-bold text-white bg-black/60 px-1.5 py-0.5 rounded border border-amber-500/30">/rp/{computedSlug}</span>.
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-amber-200 font-semibold">
+                      Votre ancien lien (<span className="line-through text-gray-400">/rp/{promoter?.slug}</span>) ne sera plus valide. <strong>Vous devrez impérativement renvoyer le nouveau lien à vos invités.</strong>
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-bold text-gray-300 uppercase tracking-wider mb-1.5">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { slugify } from '@/lib/utils';
 
 // 1. OBTENIR LE PROFIL ET STATS DU RP CONNECTÉ (GET)
 export async function GET() {
@@ -105,7 +106,7 @@ export async function GET() {
     // Récupérer le classement global (basé STRICTEMENT sur les entrées validées)
     const { data: allPromoters } = await supabaseAdmin
       .from('promoters')
-      .select('id, first_name, last_name, instagram_handle, slug, avatar_url, is_active, views_count')
+      .select('id, first_name, last_name, pseudo, instagram_handle, slug, avatar_url, is_active, views_count')
       .eq('is_active', true);
 
     const { data: allEntries } = await supabaseAdmin
@@ -134,14 +135,18 @@ export async function GET() {
         const entries = entryCounts[p.id] || 0;
         const regs = regCounts[p.id] || 0;
         const rate = regs > 0 ? Math.round((entries / regs) * 100) : 0;
+        const pObj = p as unknown as { pseudo?: string | null; views_count?: number };
+        const displayName = pObj.pseudo || `${p.first_name} ${p.last_name}`;
         return {
           id: p.id,
           first_name: p.first_name,
           last_name: p.last_name,
+          pseudo: pObj.pseudo || null,
+          name: displayName,
           instagram_handle: p.instagram_handle,
           slug: p.slug,
           avatar_url: p.avatar_url,
-          views_count: (p as unknown as { views_count?: number }).views_count || 0,
+          views_count: pObj.views_count || 0,
           entries_count: entries,
           registrations_count: regs,
           attendance_rate: rate,
@@ -246,7 +251,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { promoter_id, first_name, last_name, instagram_handle, avatar_url } = body;
+    const { promoter_id, first_name, last_name, pseudo, instagram_handle, avatar_url } = body;
 
     if (!first_name || !last_name) {
       return NextResponse.json(
@@ -303,14 +308,59 @@ export async function PUT(request: Request) {
 
     const cleanInsta = instagram_handle ? instagram_handle.trim().replace(/^@/, '') : null;
     const cleanAvatar = avatar_url ? avatar_url.trim() : null;
+    const cleanPseudo = pseudo !== undefined ? (typeof pseudo === 'string' && pseudo.trim().length > 0 ? pseudo.trim() : null) : undefined;
+
+    // Récupérer le promoteur actuel pour vérifier son slug et son pseudo
+    const { data: currentPromoter } = await supabaseAdmin
+      .from('promoters')
+      .select('id, slug, pseudo, first_name, last_name')
+      .eq('id', targetPromoterId)
+      .single();
+
+    if (!currentPromoter) {
+      return NextResponse.json({ error: 'Promoteur introuvable.' }, { status: 404 });
+    }
+
+    // Déterminer le slug : si pseudo renseigné, slugify(pseudo), sinon slugify(prénom + nom)
+    const effectivePseudo = cleanPseudo !== undefined ? cleanPseudo : currentPromoter.pseudo;
+    const desiredSlug = effectivePseudo 
+      ? slugify(effectivePseudo) 
+      : slugify(`${first_name.trim()} ${last_name.trim()}`);
+
+    let newSlug = currentPromoter.slug;
+    let slugChanged = false;
+
+    if (desiredSlug && desiredSlug !== currentPromoter.slug) {
+      // Vérifier si ce slug est déjà pris par un autre RP
+      const { data: existingSlug } = await supabaseAdmin
+        .from('promoters')
+        .select('id')
+        .eq('slug', desiredSlug)
+        .neq('id', targetPromoterId)
+        .maybeSingle();
+
+      if (existingSlug) {
+        return NextResponse.json(
+          { error: `Le lien personnalisé "/rp/${desiredSlug}" correspondant à ce pseudo est déjà pris par un autre RP. Veuillez choisir un autre pseudo.` },
+          { status: 400 }
+        );
+      }
+      newSlug = desiredSlug;
+      slugChanged = true;
+    }
 
     const updateData: Record<string, unknown> = {
       first_name: first_name.trim(),
       last_name: last_name.trim(),
       instagram_handle: cleanInsta,
       avatar_url: cleanAvatar,
+      slug: newSlug,
       updated_at: new Date().toISOString(),
     };
+
+    if (cleanPseudo !== undefined) {
+      updateData.pseudo = cleanPseudo;
+    }
 
     const { data: updatedPromoter, error: updateError } = await supabaseAdmin
       .from('promoters')
@@ -343,14 +393,22 @@ export async function PUT(request: Request) {
       metadata: {
         first_name,
         last_name,
-        instagram_handle: cleanInsta,
+        pseudo: cleanPseudo,
+        old_slug: currentPromoter.slug,
+        new_slug: newSlug,
+        slug_changed: slugChanged,
       },
     });
 
     return NextResponse.json({
       success: true,
       promoter: updatedPromoter,
-      message: 'Votre profil RP a été mis à jour avec succès.',
+      slug_changed: slugChanged,
+      old_slug: currentPromoter.slug,
+      new_slug: newSlug,
+      message: slugChanged
+        ? `Votre pseudo et votre lien personnel ont été mis à jour (/rp/${newSlug}). Pensez impérativement à repartager ce nouveau lien car l'ancien ne fonctionne plus !`
+        : 'Votre profil RP a été mis à jour avec succès.',
     });
   } catch (err: unknown) {
     const error = err as Error;

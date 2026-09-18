@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
     // 3. RP Actifs
     supabase
       .from('promoters')
-      .select('id, first_name, last_name, slug', { count: 'exact' })
+      .select('id, first_name, last_name, pseudo, slug', { count: 'exact' })
       .eq('is_active', true),
     // 4. Entrées cette année (Total Concours)
     supabase
@@ -94,7 +94,7 @@ export default async function AdminDashboardPage() {
       .from('entries')
       .select(`
         promoter_id,
-        promoter:promoters(first_name, last_name, slug)
+        promoter:promoters(first_name, last_name, pseudo, slug)
       `)
       .gte('scanned_at', yearStart)
       .in('status', ['valid', 'VALID']),
@@ -122,7 +122,7 @@ export default async function AdminDashboardPage() {
       .select(`
         event_id,
         promoter_id,
-        promoter:promoters(first_name, last_name)
+        promoter:promoters(first_name, last_name, pseudo)
       `)
       .in('status', ['valid', 'VALID']),
     // 11. Toutes les inscriptions par événement pour analyse comparative
@@ -167,8 +167,8 @@ export default async function AdminDashboardPage() {
     const promoterScoreMap: Record<string, { name: string; count: number }> = {};
     eventEntries.forEach((entry) => {
       if (!entry.promoter_id) return;
-      const p = Array.isArray(entry.promoter) ? entry.promoter[0] : entry.promoter;
-      const name = p ? `${p.first_name} ${p.last_name}` : 'RP';
+      const p = (Array.isArray(entry.promoter) ? entry.promoter[0] : entry.promoter) as { first_name: string; last_name: string; pseudo?: string | null } | null;
+      const name = p ? (p.pseudo || `${p.first_name} ${p.last_name}`) : 'RP';
       if (!promoterScoreMap[entry.promoter_id]) {
         promoterScoreMap[entry.promoter_id] = { name, count: 0 };
       }
@@ -278,7 +278,7 @@ export default async function AdminDashboardPage() {
     const p = Array.isArray(item.promoter) ? item.promoter[0] : item.promoter;
     if (!promoterCountMap[pId]) {
       promoterCountMap[pId] = {
-        name: p ? `${p.first_name} ${p.last_name}` : 'RP Inconnu',
+        name: p ? (p.pseudo || `${p.first_name} ${p.last_name}`) : 'RP Inconnu',
         slug: p?.slug || '',
         count: 0,
       };
@@ -287,10 +287,10 @@ export default async function AdminDashboardPage() {
   });
 
   // Inclure également tous les RP actifs enregistrés même avec 0 scan
-  (activePromotersList || []).forEach((p: { id: string; first_name: string; last_name: string; slug: string }) => {
+  (activePromotersList || []).forEach((p: { id: string; first_name: string; last_name: string; pseudo?: string | null; slug: string }) => {
     if (!promoterCountMap[p.id]) {
       promoterCountMap[p.id] = {
-        name: `${p.first_name} ${p.last_name}`,
+        name: p.pseudo || `${p.first_name} ${p.last_name}`,
         slug: p.slug,
         count: 0,
       };
@@ -309,7 +309,7 @@ export default async function AdminDashboardPage() {
       id,
       scanned_at,
       guest:guests(first_name, last_name),
-      promoter:promoters(first_name, last_name),
+      promoter:promoters(first_name, last_name, pseudo),
       event:events(name)
     `)
     .order('scanned_at', { ascending: false })
@@ -1194,7 +1194,7 @@ export default async function AdminDashboardPage() {
               <tbody className="divide-y divide-[#1b1f2e]">
                 {recentEntries.map((e) => {
                   const g = Array.isArray(e.guest) ? e.guest[0] : e.guest;
-                  const p = Array.isArray(e.promoter) ? e.promoter[0] : e.promoter;
+                  const p = (Array.isArray(e.promoter) ? e.promoter[0] : e.promoter) as { first_name: string; last_name: string; pseudo?: string | null } | null;
                   const ev = Array.isArray(e.event) ? e.event[0] : e.event;
                   const scanDate = new Date(e.scanned_at);
                   const scanTime = scanDate.toLocaleTimeString('fr-FR', {
@@ -1209,7 +1209,7 @@ export default async function AdminDashboardPage() {
                         {g ? `${g.first_name} ${g.last_name}` : 'Invité'}
                       </td>
                       <td className="py-3 text-[#e5b85c] font-medium">
-                        {p ? `${p.first_name} ${p.last_name}` : '—'}
+                        {p ? (p.pseudo || `${p.first_name} ${p.last_name}`) : '—'}
                       </td>
                       <td className="py-3 text-gray-400">
                         {ev?.name || 'ASTRA'}

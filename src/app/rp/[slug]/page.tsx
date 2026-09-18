@@ -8,7 +8,7 @@ import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import { Sparkles, Calendar, Clock, ArrowRight, AlertCircle, CheckCircle2, UserCheck, Shield, Shirt, IdCard } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
-type PublicPromoter = Pick<Promoter, 'id' | 'first_name' | 'last_name' | 'slug' | 'avatar_url' | 'instagram_handle' | 'is_active'>;
+type PublicPromoter = Pick<Promoter, 'id' | 'first_name' | 'last_name' | 'pseudo' | 'slug' | 'avatar_url' | 'instagram_handle' | 'is_active'>;
 
 export default function PromoterPublicPage({
   params,
@@ -43,7 +43,7 @@ export default function PromoterPublicPage({
         // 1. Récupérer le promoteur actif par son slug
         const { data: pData, error: pError } = await supabase
           .from('promoters')
-          .select('id, first_name, last_name, slug, avatar_url, instagram_handle, is_active')
+          .select('id, first_name, last_name, pseudo, slug, avatar_url, instagram_handle, is_active')
           .eq('slug', slug.toLowerCase())
           .eq('is_active', true)
           .maybeSingle();
@@ -176,17 +176,17 @@ export default function PromoterPublicPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={promoter.avatar_url}
-                alt={`${promoter.first_name} ${promoter.last_name}`}
+                alt={promoter.pseudo || `${promoter.first_name} ${promoter.last_name}`}
                 className="w-8 h-8 rounded-full object-cover border border-[#e5b85c]"
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-[#1b1f2e] border border-[#2e354c] flex items-center justify-center text-[#e5b85c] font-black text-xs">
-                {promoter.first_name.charAt(0)}{promoter.last_name.charAt(0)}
+                {promoter.pseudo ? promoter.pseudo.charAt(0).toUpperCase() : `${promoter.first_name.charAt(0)}${promoter.last_name.charAt(0)}`}
               </div>
             )}
             <div className="text-left">
               <span className="text-gray-400 block text-[10px] uppercase font-semibold">Pass RP Officiel</span>
-              <span className="text-white font-bold">{promoter.first_name} {promoter.last_name}</span>
+              <span className="text-white font-bold">{promoter.pseudo || `${promoter.first_name} ${promoter.last_name}`}</span>
             </div>
             {promoter.instagram_handle && (
               <span className="text-gray-500 flex items-center gap-1 border-l border-gray-700 pl-2">
@@ -418,7 +418,7 @@ export default function PromoterPublicPage({
             <Calendar className="w-10 h-10 text-gray-500 mx-auto mb-3" />
             <h2 className="text-lg font-bold text-white mb-2">Aucune soirée en cours</h2>
             <p className="text-gray-400 text-sm">
-              Revenez très vite sur ce lien pour réserver votre prochaine entrée ASTRA avec {promoter.first_name}.
+              Revenez très vite sur ce lien pour réserver votre prochaine entrée ASTRA avec {promoter.pseudo || promoter.first_name}.
             </p>
           </div>
         )}

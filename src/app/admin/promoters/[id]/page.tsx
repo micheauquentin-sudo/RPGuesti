@@ -209,9 +209,10 @@ export default function PromoterDetailPage({
 
   const handleDelete = async () => {
     if (!promoter) return;
+    const displayName = promoter.pseudo ? `${promoter.pseudo} (${promoter.first_name} ${promoter.last_name})` : `${promoter.first_name} ${promoter.last_name}`;
     if (
       !confirm(
-        `Êtes-vous certain de vouloir supprimer définitivement le RP ${promoter.first_name} ${promoter.last_name} ?\n\nCette action est irréversible et son lien personnel /rp/${promoter.slug} cessera de fonctionner.`
+        `Êtes-vous certain de vouloir supprimer définitivement le RP ${displayName} ?\n\nCette action est irréversible et son lien personnel /rp/${promoter.slug} cessera de fonctionner.`
       )
     ) {
       return;
@@ -279,12 +280,19 @@ export default function PromoterDetailPage({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-[#1b1f2e] border border-[#2d334a] flex items-center justify-center font-black text-xl text-[#e5b85c] shadow-lg">
-              {promoter.first_name[0]}{promoter.last_name[0]}
+              {promoter.pseudo ? promoter.pseudo.slice(0, 2).toUpperCase() : `${promoter.first_name[0]}${promoter.last_name[0]}`}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black text-white">
-                  {promoter.first_name} {promoter.last_name}
+                <h1 className="text-2xl font-black text-white flex items-center gap-2 flex-wrap">
+                  {promoter.pseudo ? (
+                    <>
+                      <span>{promoter.pseudo}</span>
+                      <span className="text-sm font-normal text-gray-400">({promoter.first_name} {promoter.last_name})</span>
+                    </>
+                  ) : (
+                    `${promoter.first_name} ${promoter.last_name}`
+                  )}
                 </h1>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
@@ -498,7 +506,7 @@ export default function PromoterDetailPage({
             </div>
 
             <p className="text-xs text-gray-300">
-              Lien sécurisé pour <strong>{promoter.first_name} {promoter.last_name}</strong> :
+              Lien sécurisé pour <strong>{promoter.pseudo ? `${promoter.pseudo} (${promoter.first_name} ${promoter.last_name})` : `${promoter.first_name} ${promoter.last_name}`}</strong> :
             </p>
 
             <div className="bg-[#141722] border border-[#24283a] rounded-xl p-3 flex items-center justify-between gap-2">
@@ -526,13 +534,13 @@ export default function PromoterDetailPage({
                 Message WhatsApp prêt à envoyer :
               </p>
               <div className="p-3 bg-[#12141e] border border-[#1e2230] rounded-xl text-xs text-gray-300 whitespace-pre-line leading-relaxed font-sans">
-                {`Salut ${promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`}
+                {`Salut ${promoter.pseudo || promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`}
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => {
-                    const msg = `Salut ${promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`;
+                    const msg = `Salut ${promoter.pseudo || promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`;
                     navigator.clipboard.writeText(msg);
                     setCopiedInviteMsg(true);
                     setTimeout(() => setCopiedInviteMsg(false), 2000);
@@ -546,7 +554,7 @@ export default function PromoterDetailPage({
                 <button
                   onClick={() => {
                     const msg = encodeURIComponent(
-                      `Salut ${promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`
+                      `Salut ${promoter.pseudo || promoter.first_name} ! Voici ton lien officiel pour activer ton espace RP au Club ASTRA : ${inviteUrl}\n\nEntre simplement ton email et choisis ton mot de passe pour suivre tes entrées et ton classement en direct !`
                     );
                     window.open(`https://wa.me/?text=${msg}`, '_blank');
                   }}
@@ -579,7 +587,7 @@ export default function PromoterDetailPage({
             </div>
 
             <p className="text-xs text-gray-300">
-              Configurez manuellement l&apos;adresse email et le mot de passe pour <strong>{promoter.first_name} {promoter.last_name}</strong>.
+              Configurez manuellement l&apos;adresse email et le mot de passe pour <strong>{promoter.pseudo ? `${promoter.pseudo} (${promoter.first_name} ${promoter.last_name})` : `${promoter.first_name} ${promoter.last_name}`}</strong>.
             </p>
 
             {directMsg && (

@@ -20,6 +20,7 @@ export interface Promoter {
   profile_id: string | null;
   first_name: string;
   last_name: string;
+  pseudo?: string | null;
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;
@@ -96,6 +97,7 @@ export interface LeaderboardItem {
   promoter_id: string;
   first_name: string;
   last_name: string;
+  pseudo?: string | null;
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;

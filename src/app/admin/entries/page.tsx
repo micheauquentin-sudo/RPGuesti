@@ -27,6 +27,7 @@ interface EntryRow {
   promoter: {
     first_name: string;
     last_name: string;
+    pseudo?: string | null;
   };
   event: {
     id: string;
@@ -56,7 +57,7 @@ export default function AdminEntriesPage() {
       const { data: eData } = await supabase.from('events').select('*').order('event_date', { ascending: false });
       if (eData) setEvents(eData);
 
-      const { data: pData } = await supabase.from('promoters').select('id, first_name, last_name, slug, avatar_url').order('first_name');
+      const { data: pData } = await supabase.from('promoters').select('id, first_name, last_name, pseudo, slug, avatar_url').order('first_name');
       if (pData) setPromoters(pData as unknown as typeof promoters);
     }
     loadFilters();
@@ -73,7 +74,7 @@ export default function AdminEntriesPage() {
           scanned_at,
           status,
           guest:guests(first_name, last_name, phone),
-          promoter:promoters(first_name, last_name),
+          promoter:promoters(first_name, last_name, pseudo),
           event:events(id, name, event_date),
           scanner:profiles(first_name, last_name, email)
         `)
@@ -135,7 +136,7 @@ export default function AdminEntriesPage() {
   const filtered = entries.filter((e) => {
     const q = searchQuery.toLowerCase();
     const gName = `${e.guest?.first_name || ''} ${e.guest?.last_name || ''}`.toLowerCase();
-    const pName = `${e.promoter?.first_name || ''} ${e.promoter?.last_name || ''}`.toLowerCase();
+    const pName = `${e.promoter?.pseudo || ''} ${e.promoter?.first_name || ''} ${e.promoter?.last_name || ''}`.toLowerCase();
     return gName.includes(q) || pName.includes(q);
   });
 
@@ -197,7 +198,7 @@ export default function AdminEntriesPage() {
           <option value="all">Tous les promoteurs RP</option>
           {promoters.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.first_name} {p.last_name}
+              {p.pseudo ? `${p.pseudo} (${p.first_name} ${p.last_name})` : `${p.first_name} ${p.last_name}`}
             </option>
           ))}
         </select>
@@ -248,7 +249,7 @@ export default function AdminEntriesPage() {
                       </td>
 
                       <td className="py-4 px-4 font-semibold text-[#e5b85c]">
-                        {e.promoter.first_name} {e.promoter.last_name}
+                        {e.promoter.pseudo || `${e.promoter.first_name} ${e.promoter.last_name}`}
                       </td>
 
                       <td className="py-4 px-4 text-gray-300">

@@ -61,6 +61,7 @@ interface RegistrationDetail {
   promoter: {
     first_name: string;
     last_name: string;
+    pseudo?: string | null;
     avatar_url?: string | null;
     slug?: string;
   };
@@ -296,7 +297,8 @@ async function generateFullTicketImage(
 
   ctx.fillStyle = '#e5b85c';
   ctx.font = '900 20px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`${registration.promoter.first_name} ${registration.promoter.last_name}`, 475, infoY + 54);
+  const promoterDisplayName = registration.promoter.pseudo || `${registration.promoter.first_name} ${registration.promoter.last_name}`;
+  ctx.fillText(promoterDisplayName, 475, infoY + 54);
 
   currentY += infoBoxH + 16;
 
@@ -659,7 +661,7 @@ export default function GuestQrPassPage({
       `DTSTART:${startStr}`,
       `DTEND:${endStr}`,
       `SUMMARY:★ SOIRÉE ASTRA : ${event.name} (Pass Gratuit)`,
-      `DESCRIPTION:Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.first_name}. Consigne obligatoire : demandez une entrée ASTRA à votre arrivée ! Lien du pass : ${window.location.href}`,
+      `DESCRIPTION:Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.pseudo || promoter.first_name}. Consigne obligatoire : demandez une entrée ASTRA à votre arrivée ! Lien du pass : ${window.location.href}`,
       'LOCATION:Club ASTRA, Orléans',
       'STATUS:CONFIRMED',
       'BEGIN:VALARM',
@@ -691,7 +693,7 @@ export default function GuestQrPassPage({
     const endDay = endH < startH ? day + 1 : day;
     const endStr = `${year}${pad(month)}${pad(endDay)}T${pad(endH)}${pad(endM)}00Z`;
     const title = encodeURIComponent(`★ SOIRÉE ASTRA : ${event.name} (Pass Gratuit)`);
-    const details = encodeURIComponent(`Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.first_name}. Demandez une entrée ASTRA à l'arrivée ! Lien : ${window.location.href}`);
+    const details = encodeURIComponent(`Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.pseudo || promoter.first_name}. Demandez une entrée ASTRA à l'arrivée ! Lien : ${window.location.href}`);
     const loc = encodeURIComponent('Club ASTRA, Orléans');
     window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${loc}`, '_blank');
   };
@@ -1148,7 +1150,7 @@ export default function GuestQrPassPage({
                 <div className="p-2.5 rounded-xl bg-[#0b0c12] border border-[#232738] flex items-start gap-2.5">
                   <Sparkles className="w-4 h-4 text-[#e5b85c] shrink-0 mt-0.5" />
                   <p className="leading-snug text-gray-400">
-                    Votre entrée est <strong className="text-white">100% gratuite</strong> grâce à l&apos;invitation de <strong className="text-[#e5b85c]">{registration.promoter.first_name} {registration.promoter.last_name}</strong>.
+                    Votre entrée est <strong className="text-white">100% gratuite</strong> grâce à l&apos;invitation de <strong className="text-[#e5b85c]">{registration.promoter.pseudo || `${registration.promoter.first_name} ${registration.promoter.last_name}`}</strong>.
                   </p>
                 </div>
               </div>
@@ -1373,7 +1375,7 @@ export default function GuestQrPassPage({
               </div>
             </div>
             <p className="text-xs text-gray-300 mb-3 leading-relaxed">
-              Partage ce lien pour qu&apos;ils réservent leur <strong className="text-white">entrée 100% GRATUITE</strong> sur la guestlist officielle de <strong className="text-[#e5b85c]">{registration?.promoter?.first_name || 'notre RP'}</strong>.
+              Partage ce lien pour qu&apos;ils réservent leur <strong className="text-white">entrée 100% GRATUITE</strong> sur la guestlist officielle de <strong className="text-[#e5b85c]">{registration?.promoter?.pseudo || registration?.promoter?.first_name || 'notre RP'}</strong>.
             </p>
 
             <div className="grid grid-cols-2 gap-2">
