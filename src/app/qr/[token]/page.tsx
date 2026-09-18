@@ -365,7 +365,7 @@ async function generateFullTicketImage(
   ctx.fillStyle = '#e2e8f0';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
   ctx.fillText('• 🪪 PIÈCE D\'IDENTITÉ PHYSIQUE ORIGINALE (+18 ANS STRICTEMENT, PHOTOS SUR ÉCRAN REFUSÉES)', 450, rulesY + 46);
-  ctx.fillText('• 👔 TENUE SOIGNÉE EXIGÉE (SURVÊTEMENTS, CASQUETTES, CLAQUETTES & SACOCHES INTERDITS)', 450, rulesY + 68);
+  ctx.fillText('• 👔 TENUE CORRECTE EXIGÉE', 450, rulesY + 68);
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
@@ -1137,17 +1137,17 @@ export default function GuestQrPassPage({
                 </div>
               </div>
 
-              {/* Règle 2 : Tenue Soignée */}
+              {/* Règle 2 : Tenue Correcte */}
               <div className="p-2.5 bg-[#0a0c13] rounded-xl border border-[#e5b85c]/20 flex items-start gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-[#e5b85c]/15 text-[#e5b85c] flex items-center justify-center shrink-0 mt-0.5">
                   <Shirt className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-[11px] font-bold text-white block leading-tight">
-                    Tenue Soignée Exigée
+                    Tenue Correcte Exigée
                   </span>
                   <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
-                    Survêtements, casquettes, claquettes et sacoches banane strictement interdits.
+                    Tenue correcte exigée pour accéder à l&apos;établissement.
                   </p>
                 </div>
               </div>

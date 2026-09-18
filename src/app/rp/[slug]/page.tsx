@@ -384,7 +384,7 @@ export default function PromoterPublicPage({
                     </p>
                     <p className="flex items-center gap-1.5">
                       <Shirt className="w-3 h-3 text-[#e5b85c] shrink-0" />
-                      <span><strong className="text-white">Tenue soignée exigée</strong> (survêtements, casquettes & sacoches interdits).</span>
+                      <span><strong className="text-white">Tenue correcte exigée</strong> à l&apos;entrée de l&apos;établissement.</span>
                     </p>
                   </div>
                   <p className="text-[9px] text-gray-400 mt-1.5 italic">
