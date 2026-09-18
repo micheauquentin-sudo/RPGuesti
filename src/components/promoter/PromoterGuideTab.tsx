@@ -40,7 +40,7 @@ interface PromoterGuideTabProps {
     avatar_url: string | null;
   };
   promoterPublicUrl: string;
-  onOpenStoryModal: () => void;
+  onOpenEventShare: () => void;
   onOpenEditProfile: () => void;
   onShareWhatsApp: () => void;
   onSwitchToDashboard: () => void;
@@ -49,7 +49,7 @@ interface PromoterGuideTabProps {
 export default function PromoterGuideTab({
   promoter,
   promoterPublicUrl,
-  onOpenStoryModal,
+  onOpenEventShare,
   onOpenEditProfile,
   onShareWhatsApp,
   onSwitchToDashboard,
@@ -121,11 +121,11 @@ export default function PromoterGuideTab({
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
-              onClick={onOpenStoryModal}
+              onClick={onOpenEventShare}
               className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:brightness-110 text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#e5b85c]/20 cursor-pointer active:scale-98 transition-all"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Créer ma Story Instagram 9:16</span>
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Inviter mes amis (Multi-Canaux)</span>
             </button>
 
             <button
@@ -166,11 +166,11 @@ export default function PromoterGuideTab({
               </div>
               <h3 className="text-sm font-bold text-white">Tu partages ton lien RP</h3>
               <p className="text-xs text-gray-400 leading-relaxed">
-                Poste ton affiche officielle en <strong>Story Instagram</strong> avec le sticker de lien, ou envoie ton invitation directe en 1-clic sur <strong>WhatsApp</strong>.
+                Partage ton lien officiel sur <strong>WhatsApp</strong>, par <strong>SMS</strong>, en story ou bio <strong>Instagram</strong>, ou via le partage natif de ton téléphone.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-[#232738]/60 text-[10px] text-[#e5b85c] font-bold">
-              ★ Format 9:16 prêt à l&apos;emploi
+              ★ Message pré-rempli officiel
             </div>
           </div>
 
@@ -249,22 +249,22 @@ export default function PromoterGuideTab({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Outil 1 : Studio Story Instagram HD */}
+          {/* Outil 1 : Invitation Multi-Canaux */}
           <div className="bg-[#0f1118] border border-[#232738] rounded-2xl p-5 space-y-3 flex flex-col justify-between hover:border-[#e5b85c]/40 transition-all">
             <div className="space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500/20 to-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                <InstagramIcon className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Share2 className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-white">Studio Story Instagram HD (9:16)</h3>
+              <h3 className="text-sm font-bold text-white">Invitation Multi-Canaux</h3>
               <p className="text-xs text-gray-400 leading-relaxed">
-                Générez en 1-clic une affiche grand format 1080x1920 prête pour vos Stories, personnalisée avec votre nom, votre avatar, l&apos;affiche de la soirée et l&apos;emplacement parfait pour coller votre sticker de lien.
+                Choisissez précisément où envoyer vos invitations : WhatsApp, SMS, Réseaux sociaux ou Partage natif avec message officiel pré-rempli incluant la soirée, la date et votre pass RP.
               </p>
             </div>
             <button
-              onClick={onOpenStoryModal}
+              onClick={onOpenEventShare}
               className="w-full py-2 px-3 rounded-xl bg-[#1a1d2b] hover:bg-[#23273a] text-xs font-bold text-[#e5b85c] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <span>Ouvrir le Studio Story</span>
+              <span>Choisir où inviter</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

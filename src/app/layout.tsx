@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import PWAInstallPrompt from "@/components/ui/PWAInstallPrompt";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,6 +43,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#08090d] text-gray-100">
         {children}
+        <PWAInstallPrompt />
         <script
           dangerouslySetInnerHTML={{
             __html: `

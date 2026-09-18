@@ -35,7 +35,7 @@ import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { getPromoterRank } from '@/lib/promoter-ranks';
-import InstagramStoryModal from '@/components/promoter/InstagramStoryModal';
+import EventShareModal from '@/components/promoter/EventShareModal';
 import PromoterGuideTab from '@/components/promoter/PromoterGuideTab';
 import confetti from 'canvas-confetti';
 
@@ -174,8 +174,8 @@ export default function PromoterDashboardPage() {
   // Onglet Actif (Dashboard Opérationnel vs Guide & Découverte Produit)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'guide'>('dashboard');
 
-  // Modal Story Instagram HD
-  const [storyModalOpen, setStoryModalOpen] = useState(false);
+  // Modal Partage Soirée Multi-Canaux (WhatsApp, SMS, Insta, Natif, Copie)
+  const [eventShareModalOpen, setEventShareModalOpen] = useState(false);
 
   // Ping Entrée en Direct (Temps Réel)
   const [realtimeToast, setRealtimeToast] = useState<{ id: string; message: string; time: string } | null>(null);
@@ -618,7 +618,7 @@ export default function PromoterDashboardPage() {
         <PromoterGuideTab
           promoter={promoter}
           promoterPublicUrl={promoterPublicUrl}
-          onOpenStoryModal={() => setStoryModalOpen(true)}
+          onOpenEventShare={() => setEventShareModalOpen(true)}
           onOpenEditProfile={() => setEditModalOpen(true)}
           onShareWhatsApp={shareViaWhatsApp}
           onSwitchToDashboard={() => setActiveTab('dashboard')}
@@ -898,34 +898,34 @@ export default function PromoterDashboardPage() {
           </Link>
         </div>
 
-        {/* BANNIÈRE PHARE : STUDIO STORY INSTAGRAM HD (9:16) */}
+        {/* BANNIÈRE PHARE : INVITATION MULTI-CANAUX (WhatsApp, SMS, Réseaux, Copier) */}
         <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#e5b85c]/25 via-[#1e1910] to-[#e5b85c]/10 border-2 border-[#e5b85c] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
           <div className="flex items-center gap-3.5 text-center sm:text-left">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#e5b85c] to-[#c59837] flex items-center justify-center text-black shadow-lg shrink-0">
-              <Sparkles className="w-6 h-6 animate-pulse" />
+              <Share2 className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center justify-center sm:justify-start gap-2">
                 <h3 className="text-base font-black text-white">
-                  Studio Story Instagram HD (Format 9:16)
+                  Inviter mes Amis (Multi-Canaux)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black text-[#e5b85c] border border-[#e5b85c]/50">
-                  Générateur 1-Clic
+                  WhatsApp • SMS • Insta
                 </span>
               </div>
               <p className="text-xs text-gray-300 mt-0.5">
-                Créez et téléchargez votre affiche officielle prête pour vos Stories avec la zone de sticker de lien !
+                Choisissez précisément où envoyer votre invitation avec le message officiel pré-rempli et votre lien RP.
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => setStoryModalOpen(true)}
+            onClick={() => setEventShareModalOpen(true)}
             className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl active:scale-98 transition-all cursor-pointer shrink-0"
           >
-            <Sparkles className="w-4 h-4 text-black" />
-            <span>Créer ma Story HD</span>
+            <Share2 className="w-4 h-4 text-black" />
+            <span>Choisir où inviter</span>
           </button>
         </div>
 
@@ -1040,9 +1040,10 @@ export default function PromoterDashboardPage() {
                   Inscriptions ouvertes
                 </span>
                 <button
-                  onClick={shareViaWhatsApp}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#1c202d] hover:bg-[#252b3d] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={() => setEventShareModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:brightness-110 text-black text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                 >
+                  <Share2 className="w-3.5 h-3.5" />
                   <span>Inviter pour cette soirée</span>
                 </button>
               </div>
@@ -1558,14 +1559,14 @@ export default function PromoterDashboardPage() {
         </div>
       )}
 
-      {/* MODAL STUDIO STORY INSTAGRAM HD (9:16) */}
-      {storyModalOpen && promoter && (
-        <InstagramStoryModal
-          isOpen={storyModalOpen}
-          onClose={() => setStoryModalOpen(false)}
+      {/* MODAL DE PARTAGE MULTI-CANAUX */}
+      {eventShareModalOpen && promoter && (
+        <EventShareModal
+          isOpen={eventShareModalOpen}
+          onClose={() => setEventShareModalOpen(false)}
           promoter={promoter}
           upcomingEvent={upcomingEvent}
-          entriesCount={personalEntries}
+          promoterPublicUrl={promoterPublicUrl}
         />
       )}
     </div>

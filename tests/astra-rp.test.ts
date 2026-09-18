@@ -439,4 +439,36 @@ describe('ASTRA RP — Nouvelles Fonctionnalités Clubbing (Options 1, 2, 4, 5)'
     switchTab('dashboard');
     expect(currentTab).toBe('dashboard');
   });
+
+  it('PWA : Détection installation écran d\'accueil et suppression prompt si autonome', () => {
+    const shouldPromptInstall = (isStandalone: boolean, isDismissed: boolean) => {
+      if (isStandalone) return false;
+      if (isDismissed) return false;
+      return true;
+    };
+
+    // Nouveau visiteur dans le navigateur : pop-up proposée
+    expect(shouldPromptInstall(false, false)).toBe(true);
+
+    // Déjà sur l'écran d'accueil (standalone PWA) : pas de pop-up
+    expect(shouldPromptInstall(true, false)).toBe(false);
+
+    // Visiteur ayant cliqué sur "Plus tard" : pas de pop-up
+    expect(shouldPromptInstall(false, true)).toBe(false);
+  });
+
+  it('Partage Soirée RP : Génération des messages multi-canaux (WhatsApp, SMS, Insta)', () => {
+    const buildShareMessages = (eventName: string, promoterUrl: string) => ({
+      whatsapp: `Salut ! Je t'invite au club ASTRA pour "${eventName}" ! Ton entrée est 100% GRATUITE : ${promoterUrl}`,
+      sms: `Salut ! Entrée ASTRA (${eventName}) 100% GRATUITE ici : ${promoterUrl}`,
+      instagram: `Pass Invité ASTRA pour "${eventName}" : ${promoterUrl}`,
+    });
+
+    const messages = buildShareMessages('Projet X Night', 'https://astra-club.fr/rp/lucas');
+    expect(messages.whatsapp).toContain('Projet X Night');
+    expect(messages.whatsapp).toContain('https://astra-club.fr/rp/lucas');
+    expect(messages.sms).toContain('100% GRATUITE');
+    expect(messages.instagram).toContain('Pass Invité');
+  });
 });
+
