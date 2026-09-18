@@ -462,24 +462,28 @@ export default function GuestQrPassPage({
   const [doorModeOpen, setDoorModeOpen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
   const doorCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const wakeLockRef = useRef<any>(null);
+  const wakeLockRef = useRef<{ addEventListener: (event: string, cb: () => void) => void; release: () => Promise<void> } | null>(null);
 
   // Modal Épingler à l'écran d'accueil
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [copiedPassUrl, setCopiedPassUrl] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ua = window.navigator.userAgent.toLowerCase();
-      setIsIOS(/iphone|ipad|ipod/.test(ua));
-    }
-  }, []);
+  const [isIOS] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  });
 
   const requestWakeLock = async () => {
     try {
       if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
-        const sentinel = await (navigator as any).wakeLock.request('screen');
+        const nav = navigator as unknown as {
+          wakeLock: {
+            request: (type: 'screen') => Promise<{
+              addEventListener: (event: string, cb: () => void) => void;
+              release: () => Promise<void>;
+            }>;
+          };
+        };
+        const sentinel = await nav.wakeLock.request('screen');
         wakeLockRef.current = sentinel;
         setWakeLockActive(true);
         sentinel.addEventListener('release', () => {

@@ -9,13 +9,10 @@ import {
   Trophy,
   Users,
   QrCode,
-  Flame,
-  Award,
   Crown,
   MessageSquare,
   CheckCircle2,
   ArrowRight,
-  Clock,
   HelpCircle,
   Lightbulb,
   ChevronDown,
@@ -24,12 +21,8 @@ import {
   Copy,
   Check,
   Zap,
-  LayoutDashboard,
-  Eye,
-  TrendingUp,
-  ExternalLink
+  LayoutDashboard
 } from 'lucide-react';
-import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { PROMOTER_RANKS } from '@/lib/promoter-ranks';
 
 interface PromoterGuideTabProps {
@@ -116,7 +109,7 @@ export default function PromoterGuideTab({
           </h1>
 
           <p className="text-xs sm:text-sm text-gray-300 leading-relaxed font-normal">
-            Bienvenue dans votre quartier général. Cette plateforme a été conçue sur-mesure pour vous permettre d&apos;inviter vos amis en un éclair, de suivre vos entrées en temps réel, de convertir un maximum de pass et de grimper jusqu&apos;au rang de <strong>Légende ASTRA</strong>.
+            Bienvenue dans votre quartier général, <strong className="text-white">{promoter.first_name}</strong>. Cette plateforme a été conçue sur-mesure pour vous permettre d&apos;inviter vos amis en un éclair, de suivre vos entrées en temps réel, de convertir un maximum de pass et de grimper jusqu&apos;au rang de <strong>Légende ASTRA</strong>.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">

@@ -8,8 +8,7 @@ import {
   X,
   Sparkles,
   Smartphone,
-  CheckCircle2,
-  ChevronRight
+  CheckCircle2
 } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -20,7 +19,10 @@ interface BeforeInstallPromptEvent extends Event {
 export default function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState(false);
+  const [isIOS] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+  });
   const [showIOSSteps, setShowIOSSteps] = useState(false);
 
   useEffect(() => {
@@ -41,11 +43,6 @@ export default function PWAInstallPrompt() {
     if (isDismissed) {
       return;
     }
-
-    // Détection iOS Safari
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(ua);
-    setIsIOS(isIosDevice);
 
     // Écoute de l'événement natif Chrome/Android/Desktop
     const handleBeforeInstallPrompt = (e: Event) => {
