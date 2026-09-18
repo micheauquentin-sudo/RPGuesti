@@ -11,10 +11,21 @@ import {
   Keyboard, 
   History, 
   ArrowLeft,
+  Camera,
+  Search,
+  Wifi,
+  WifiOff,
+  UserCheck,
+  RefreshCw,
+  Clock,
+  User,
+  Phone,
   Sparkles,
-  Camera
+  X
 } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { enqueueOfflineScan, flushOfflineScans, getPendingOfflineScans } from '@/lib/offline-scan';
 
 interface RecentScanItem {
   id: string;
@@ -22,6 +33,18 @@ interface RecentScanItem {
   status: CheckInStatusCode;
   guestName?: string;
   promoterName?: string;
+}
+
+export interface SearchCandidate {
+  registration_id: string;
+  qr_token: string;
+  guest_name: string;
+  phone: string | null;
+  promoter_name: string;
+  event_name: string;
+  event_date: string;
+  status: 'VALID' | 'ALREADY_USED' | 'CANCELLED';
+  scanned_at: string | null;
 }
 
 export default function MobileScannerPage() {
@@ -32,12 +55,26 @@ export default function MobileScannerPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [recentScans, setRecentScans] = useState<RecentScanItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [manualInputOpen, setManualInputOpen] = useState(false);
-  const [manualToken, setManualToken] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Network & Sync Realtime
+  const [isOnline, setIsOnline] = useState(true);
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const [totalDoorEntries, setTotalDoorEntries] = useState<number | null>(null);
+  const [isFlushingQueue, setIsFlushingQueue] = useState(false);
+
+  // Rescue Search / Manual Modal
+  const [rescueModalOpen, setRescueModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'search' | 'token'>('search');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchCandidate[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [manualToken, setManualToken] = useState('');
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const autoResumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Jouer un son synthétique simple
   const playFeedbackTone = (type: 'success' | 'warning' | 'error') => {
@@ -70,14 +107,44 @@ export default function MobileScannerPage() {
         osc.stop(audioCtx.currentTime + 0.3);
       }
     } catch {
-      // Ignorer si audio non autorisé
+      // Audio ignoré si bloqué
     }
   };
 
-  // Traiter un code scanné
-  const processQrCode = useCallback(async (decodedText: string) => {
+  // Traiter un code scanné ou un token validé
+  const processQrCode = useCallback(async (decodedText: string, candidateGuestName?: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
+
+    const nowTime = new Intl.DateTimeFormat('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Europe/Paris'
+    }).format(new Date());
+
+    // Si nous sommes déconnectés, enregistrer directement en file d'attente hors-ligne
+    if (!navigator.onLine) {
+      enqueueOfflineScan(decodedText);
+      setPendingOfflineCount(getPendingOfflineScans().length);
+
+      setScanResult({
+        success: true,
+        status: 'VALID',
+        message: 'Enregistré hors-ligne (mise en attente du réseau)',
+        guest_name: candidateGuestName || 'Invité (Mode Hors-Ligne)',
+        promoter_name: 'Sync différée',
+        event_name: 'ASTRA',
+      });
+      playFeedbackTone('success');
+
+      if (autoResumeTimerRef.current) clearTimeout(autoResumeTimerRef.current);
+      autoResumeTimerRef.current = setTimeout(() => {
+        setScanResult(null);
+        setIsProcessing(false);
+      }, 2000);
+      return;
+    }
 
     try {
       const res = await fetch('/api/check-in', {
@@ -88,13 +155,6 @@ export default function MobileScannerPage() {
 
       const data: CheckInResponse = await res.json();
       setScanResult(data);
-
-      const nowTime = new Intl.DateTimeFormat('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        timeZone: 'Europe/Paris'
-      }).format(new Date());
 
       // Haptique et son
       if (data.status === 'VALID') {
@@ -128,17 +188,25 @@ export default function MobileScannerPage() {
       }, 1800);
 
     } catch (err: unknown) {
-      console.error(err);
+      console.error('Scan error, saving offline:', err);
+      // Fallback réseau défaillant
+      enqueueOfflineScan(decodedText);
+      setPendingOfflineCount(getPendingOfflineScans().length);
+
       setScanResult({
-        success: false,
-        status: 'ERROR',
-        message: 'Erreur de connexion réseau',
+        success: true,
+        status: 'VALID',
+        message: 'Réseau instable : scan sauvegardé hors-ligne',
+        guest_name: candidateGuestName || 'Invité (Secours Hors-Ligne)',
+        promoter_name: 'Auto-sync active',
       });
+      playFeedbackTone('warning');
+
       if (autoResumeTimerRef.current) clearTimeout(autoResumeTimerRef.current);
       autoResumeTimerRef.current = setTimeout(() => {
         setScanResult(null);
         setIsProcessing(false);
-      }, 2000);
+      }, 2200);
     }
   }, [isProcessing]);
 
@@ -163,13 +231,13 @@ export default function MobileScannerPage() {
             processQrCode(decodedText);
           },
           () => {
-            // scan failure callback (ignore les frames sans QR)
+            // ignore scan frame misses
           }
         );
         setScannerActive(true);
         setCameraError(null);
 
-        // Vérifier si la torche est supportée
+        // Torche
         try {
           const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
           if (capabilities.torchFeature && capabilities.torchFeature().isSupported()) {
@@ -194,6 +262,82 @@ export default function MobileScannerPage() {
     };
   }, [processQrCode]);
 
+  // Synchronisation Réseau & Realtime Portiers
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    setPendingOfflineCount(getPendingOfflineScans().length);
+
+    // Vider la file d'attente hors-ligne
+    const handleSyncQueue = async () => {
+      if (isFlushingQueue) return;
+      setIsFlushingQueue(true);
+      try {
+        await flushOfflineScans(() => {
+          playFeedbackTone('success');
+        });
+        setPendingOfflineCount(getPendingOfflineScans().length);
+      } catch (e) {
+        console.error('Erreur sync offline scans:', e);
+      } finally {
+        setIsFlushingQueue(false);
+      }
+    };
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      handleSyncQueue();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Charger le total actuel des entrées du soir
+    const fetchDoorCount = async () => {
+      try {
+        const supabase = createClient();
+        const today = new Date().toISOString().split('T')[0];
+        const { count, error } = await supabase
+          .from('entries')
+          .select('*', { count: 'exact', head: true })
+          .gte('scanned_at', `${today}T00:00:00Z`)
+          .eq('status', 'VALID');
+
+        if (!error && typeof count === 'number') {
+          setTotalDoorEntries(count);
+        }
+      } catch (e) {
+        console.error('Error fetching door count:', e);
+      }
+    };
+
+    fetchDoorCount();
+
+    // Supabase Realtime : multi-portiers
+    const supabase = createClient();
+    const channel = supabase
+      .channel('door-multi-bouncer')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'entries' },
+        (payload) => {
+          if (payload.new && (payload.new as { status: string }).status === 'VALID') {
+            setTotalDoorEntries((prev) => (prev !== null ? prev + 1 : 1));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      supabase.removeChannel(channel);
+    };
+  }, [isFlushingQueue]);
+
   // Basculer la torche
   const toggleTorch = async () => {
     if (!html5QrCodeRef.current || !hasTorch) return;
@@ -208,10 +352,49 @@ export default function MobileScannerPage() {
     }
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  // Recherche d'invité de secours (batterie vide)
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (val.trim().length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/check-in/search?q=${encodeURIComponent(val.trim())}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Erreur lors de la recherche');
+        }
+        setSearchResults(data.candidates || []);
+      } catch (err: unknown) {
+        const error = err as Error;
+        setSearchError(error.message || 'Impossible de rechercher les invités.');
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 280);
+  };
+
+  // Validation 1-clic pour un invité trouvé dans la recherche de secours
+  const handleValidateCandidate = (candidate: SearchCandidate) => {
+    setRescueModalOpen(false);
+    processQrCode(candidate.qr_token, candidate.guest_name);
+  };
+
+  const handleManualTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualToken.trim()) return;
-    setManualInputOpen(false);
+    setRescueModalOpen(false);
     processQrCode(manualToken.trim());
     setManualToken('');
   };
@@ -225,7 +408,7 @@ export default function MobileScannerPage() {
   return (
     <div className="fixed inset-0 bg-black text-white flex flex-col justify-between overflow-hidden select-none">
       {/* Top Bar Navigation */}
-      <div className="relative z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/90 to-transparent">
+      <div className="relative z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/95 to-transparent">
         <Link
           href="/admin"
           className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold backdrop-blur"
@@ -234,13 +417,35 @@ export default function MobileScannerPage() {
           <span>Admin</span>
         </Link>
 
-        <div className="flex items-center gap-2 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/astra-logo.png" alt="ASTRA" className="w-5 h-5 object-contain" />
-          <span className="font-black tracking-widest text-xs uppercase">ASTRA TERMINAL</span>
+        {/* Logo & Indicateur Multi-Portiers */}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/astra-logo.png" alt="ASTRA" className="w-5 h-5 object-contain" />
+            <span className="font-black tracking-widest text-xs uppercase">ASTRA TERMINAL</span>
+          </div>
+          {totalDoorEntries !== null && (
+            <div className="flex items-center gap-1 mt-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <Sparkles className="w-3 h-3 text-[#e5b85c]" />
+              <span>{totalDoorEntries} entrées ce soir</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Boutons d'action : Torche + Secours/Recherche + Status Réseau */}
+        <div className="flex items-center gap-1.5">
+          {/* Status Réseau */}
+          <div
+            title={isOnline ? 'Réseau connecté' : 'Mode hors-ligne actif'}
+            className={`p-1.5 rounded-full border backdrop-blur text-xs flex items-center justify-center ${
+              isOnline
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                : 'bg-amber-500/30 text-amber-400 border-amber-500/50 animate-pulse'
+            }`}
+          >
+            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+          </div>
+
           {hasTorch && (
             <button
               onClick={toggleTorch}
@@ -250,14 +455,41 @@ export default function MobileScannerPage() {
             </button>
           )}
 
+          {/* Bouton Recherche Secours (Nom / Téléphone / Code) */}
           <button
-            onClick={() => setManualInputOpen(true)}
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white backdrop-blur"
+            onClick={() => setRescueModalOpen(true)}
+            className="p-2 rounded-full bg-[#e5b85c]/20 hover:bg-[#e5b85c]/30 border border-[#e5b85c]/40 text-[#e5b85c] backdrop-blur flex items-center justify-center"
+            title="Recherche invité (batterie à plat) ou token manuel"
           >
-            <Keyboard className="w-4 h-4" />
+            <Search className="w-4 h-4" />
           </button>
         </div>
       </div>
+
+      {/* Alerte file d'attente hors-ligne si présence de scans en attente */}
+      {pendingOfflineCount > 0 && (
+        <div className="relative z-20 mx-4 px-3 py-1.5 bg-amber-950/90 border border-amber-500/40 rounded-xl flex items-center justify-between text-xs text-amber-200">
+          <div className="flex items-center gap-2">
+            <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${isFlushingQueue ? 'animate-spin' : ''}`} />
+            <span>{pendingOfflineCount} scan(s) en attente de synchronisation</span>
+          </div>
+          {isOnline && (
+            <button
+              disabled={isFlushingQueue}
+              onClick={() => {
+                setIsFlushingQueue(true);
+                flushOfflineScans().finally(() => {
+                  setPendingOfflineCount(getPendingOfflineScans().length);
+                  setIsFlushingQueue(false);
+                });
+              }}
+              className="px-2 py-0.5 bg-amber-500 text-black font-bold rounded text-[10px]"
+            >
+              Sync
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main Viewport: Scanner Caméra */}
       <div className="relative flex-1 flex items-center justify-center bg-black">
@@ -290,10 +522,10 @@ export default function MobileScannerPage() {
             <h2 className="text-lg font-bold text-white mb-2">Caméra non disponible</h2>
             <p className="text-gray-400 text-sm max-w-xs mb-6">{cameraError}</p>
             <button
-              onClick={() => setManualInputOpen(true)}
+              onClick={() => setRescueModalOpen(true)}
               className="py-3 px-6 bg-[#e5b85c] text-black font-bold rounded-xl text-sm"
             >
-              Saisie manuelle du code
+              Recherche de secours (Nom / Téléphone)
             </button>
           </div>
         )}
@@ -324,6 +556,9 @@ export default function MobileScannerPage() {
                 <div className="space-y-1 text-emerald-200 font-medium text-base mb-6">
                   <p>RP : <strong className="text-white font-bold">{scanResult.promoter_name}</strong></p>
                   <p className="text-sm opacity-80">{scanResult.event_name}</p>
+                  {scanResult.message && (
+                    <p className="text-xs text-emerald-300 font-mono italic">{scanResult.message}</p>
+                  )}
                 </div>
                 <p className="text-xs text-emerald-300/80 uppercase tracking-wider">
                   Prêt pour le suivant (cliquez pour passer)
@@ -382,7 +617,7 @@ export default function MobileScannerPage() {
       </div>
 
       {/* Bottom Bar: Historique des derniers scans */}
-      <div className="relative z-20 p-4 bg-gradient-to-t from-black/90 via-black/70 to-transparent">
+      <div className="relative z-20 p-4 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
         <button
           onClick={() => setShowHistory(!showHistory)}
           className="w-full py-3 px-4 bg-[#141722]/80 hover:bg-[#1c2030] border border-white/10 rounded-2xl flex items-center justify-between text-xs font-semibold backdrop-blur"
@@ -417,42 +652,194 @@ export default function MobileScannerPage() {
         )}
       </div>
 
-      {/* Modal Saisie Manuelle */}
-      {manualInputOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#12141d] border border-[#232738] rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-base font-bold text-white mb-2">Recherche de billet manuelle</h3>
-            <p className="text-xs text-gray-400 mb-4">
-              Si le QR code sur le téléphone de l&apos;invité est illisible, collez ou tapez son token.
-            </p>
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <input
-                type="text"
-                required
-                value={manualToken}
-                onChange={(e) => setManualToken(e.target.value)}
-                placeholder="Token ou URL du billet"
-                className="w-full px-4 py-3 bg-[#191c28] border border-[#2d3246] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setManualInputOpen(false)}
-                  className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-[#e5b85c] text-black rounded-xl text-xs font-bold"
-                >
-                  Valider l&apos;entrée
-                </button>
+      {/* MODAL RECHERCHE DE SECOURS (Batterie vide / Nom / Tél & Token) */}
+      {rescueModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-3 sm:p-4">
+          <div className="bg-[#12141d] border border-[#232738] rounded-3xl p-5 w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-6 duration-200">
+            
+            {/* Header Modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-[#e5b85c]/10 text-[#e5b85c] flex items-center justify-center">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Recherche de Secours</h3>
+                  <p className="text-[11px] text-gray-400">Pour invité avec batterie vide ou QR illisible</p>
+                </div>
               </div>
-            </form>
+              <button
+                onClick={() => setRescueModalOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full bg-white/5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Onglets : Recherche Secours vs Token Direct */}
+            <div className="grid grid-cols-2 gap-2 my-3 p-1 bg-[#181b26] rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveTab('search')}
+                className={`py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                  activeTab === 'search'
+                    ? 'bg-[#e5b85c] text-black shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Nom / Téléphone</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('token')}
+                className={`py-2 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 ${
+                  activeTab === 'token'
+                    ? 'bg-[#e5b85c] text-black shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <Keyboard className="w-3.5 h-3.5" />
+                <span>Token Manuel</span>
+              </button>
+            </div>
+
+            {/* CONTENU ONGLET 1 : RECHERCHE NOM / TÉLÉPHONE */}
+            {activeTab === 'search' && (
+              <div className="flex-1 overflow-hidden flex flex-col space-y-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Tapez le nom ou les 4 derniers chiffres..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#191c28] border border-[#2d3246] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                  />
+                  {isSearching && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      <RefreshCw className="w-3.5 h-3.5 text-[#e5b85c] animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                {searchError && (
+                  <p className="text-rose-400 text-xs text-center">{searchError}</p>
+                )}
+
+                {/* Liste des résultats */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[300px]">
+                  {searchQuery.trim().length >= 2 && !isSearching && searchResults.length === 0 && (
+                    <div className="text-center py-6 text-gray-500 text-xs">
+                      Aucun invité trouvé pour « {searchQuery} »
+                    </div>
+                  )}
+
+                  {searchQuery.trim().length < 2 && (
+                    <div className="text-center py-6 text-gray-500 text-xs">
+                      Saisissez au moins 2 caractères pour rechercher sur la guestlist de ce soir.
+                    </div>
+                  )}
+
+                  {searchResults.map((cand) => (
+                    <div
+                      key={cand.registration_id}
+                      className="p-3 bg-[#171a25] border border-white/5 rounded-xl flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-xs truncate">
+                            {cand.guest_name}
+                          </span>
+                          {cand.status === 'VALID' ? (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+                              VALIDE
+                            </span>
+                          ) : cand.status === 'ALREADY_USED' ? (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">
+                              DÉJÀ ENTRÉ
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">
+                              ANNULÉ
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-1">
+                          <span>RP: <strong className="text-gray-300">{cand.promoter_name}</strong></span>
+                          {cand.phone && (
+                            <span className="font-mono text-[10px] text-gray-500">{cand.phone}</span>
+                          )}
+                        </div>
+
+                        {cand.scanned_at && (
+                          <div className="text-[10px] text-amber-300/80 mt-0.5 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>Entré à {new Date(cand.scanned_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bouton 1-Clic de validation */}
+                      {cand.status === 'VALID' ? (
+                        <button
+                          onClick={() => handleValidateCandidate(cand)}
+                          className="px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl flex items-center gap-1 shadow-lg shadow-emerald-500/20 shrink-0"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Valider</span>
+                        </button>
+                      ) : (
+                        <div className="px-2 py-1 bg-white/5 text-gray-500 text-[10px] rounded-lg shrink-0">
+                          Bloqué
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CONTENU ONGLET 2 : TOKEN MANUEL */}
+            {activeTab === 'token' && (
+              <form onSubmit={handleManualTokenSubmit} className="space-y-4 py-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    Token ou lien complet du pass :
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    placeholder="ex: ast_01j8f9... ou https://rp-guesti.vercel.app/qr/..."
+                    className="w-full px-4 py-3 bg-[#191c28] border border-[#2d3246] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRescueModalOpen(false)}
+                    className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold"
+                  >
+                    Fermer
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-[#e5b85c] text-black font-bold rounded-xl text-xs"
+                  >
+                    Vérifier le token
+                  </button>
+                </div>
+              </form>
+            )}
+
           </div>
         </div>
       )}
+
     </div>
   );
 }

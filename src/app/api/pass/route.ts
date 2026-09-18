@@ -108,7 +108,7 @@ export async function GET(request: Request) {
         status,
         guest:guests(first_name, last_name),
         event:events(name, event_date, start_time, end_time, cover_image_url),
-        promoter:promoters(first_name, last_name, avatar_url)
+        promoter:promoters(first_name, last_name, avatar_url, slug)
       `)
       .eq('qr_token', token)
       .maybeSingle();
@@ -145,6 +145,7 @@ export async function GET(request: Request) {
           first_name: promoterObj?.first_name || '',
           last_name: promoterObj?.last_name || '',
           avatar_url: promoterObj?.avatar_url || null,
+          slug: promoterObj?.slug || '',
         },
       },
     });

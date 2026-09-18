@@ -125,3 +125,38 @@ describe('ASTRA RP — Machine à États du Check-in', () => {
     expect(validCodes).toContain('EVENT_NOT_ACTIVE');
   });
 });
+
+describe('ASTRA RP — Système de Rangs & Paliers de Prestige RP', () => {
+  it('Attribue correctement les paliers selon le nombre d\'entrées réelles', async () => {
+    const { getPromoterRank } = await import('../src/lib/promoter-ranks');
+
+    // 0 entrée -> Rookie
+    const r0 = getPromoterRank(0);
+    expect(r0.currentRank.id).toBe('rookie');
+    expect(r0.nextRank?.id).toBe('confirmed');
+    expect(r0.entriesToNext).toBe(25);
+
+    // 30 entrées -> RP Confirmé
+    const r30 = getPromoterRank(30);
+    expect(r30.currentRank.id).toBe('confirmed');
+    expect(r30.nextRank?.id).toBe('star');
+    expect(r30.entriesToNext).toBe(45); // 75 - 30
+
+    // 100 entrées -> Star RP
+    const r100 = getPromoterRank(100);
+    expect(r100.currentRank.id).toBe('star');
+    expect(r100.nextRank?.id).toBe('diamond');
+
+    // 200 entrées -> Diamond
+    const r200 = getPromoterRank(200);
+    expect(r200.currentRank.id).toBe('diamond');
+    expect(r200.nextRank?.id).toBe('legend');
+
+    // 350 entrées -> Légende ASTRA (Palier max)
+    const r350 = getPromoterRank(350);
+    expect(r350.currentRank.id).toBe('legend');
+    expect(r350.nextRank).toBeNull();
+    expect(r350.progressPercent).toBe(100);
+    expect(r350.entriesToNext).toBe(0);
+  });
+});

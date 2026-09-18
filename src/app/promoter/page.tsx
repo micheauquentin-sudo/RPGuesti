@@ -21,10 +21,16 @@ import {
   TrendingUp, 
   Flame,
   Award,
-  Upload
+  Upload,
+  Crown,
+  Zap,
+  Bell
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { getPromoterRank } from '@/lib/promoter-ranks';
+import InstagramStoryModal from '@/components/promoter/InstagramStoryModal';
 import confetti from 'canvas-confetti';
 
 export interface AvatarItem {
@@ -143,6 +149,13 @@ export default function PromoterDashboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [upcomingEvent, setUpcomingEvent] = useState<UpcomingEvent | null>(null);
 
+  // Modal Story Instagram HD
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
+
+  // Ping Entrée en Direct (Temps Réel)
+  const [realtimeToast, setRealtimeToast] = useState<{ id: string; message: string; time: string } | null>(null);
+  const [liveEntriesDelta, setLiveEntriesDelta] = useState(0);
+
   // Actions
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
@@ -225,11 +238,83 @@ export default function PromoterDashboardPage() {
     loadData();
   }, []);
 
+  // Synchronisation en direct des entrées (Ping Entrée RP)
+  useEffect(() => {
+    if (!promoter?.id) return;
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`promoter-entries-channel-${promoter.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'entries',
+          filter: `promoter_id=eq.${promoter.id}`,
+        },
+        () => {
+          if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
+
+          try {
+            const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+          } catch {
+            // Ignorer si audio non autorisé
+          }
+
+          try {
+            confetti({
+              particleCount: 50,
+              spread: 60,
+              origin: { y: 0.3 },
+              colors: ['#e5b85c', '#ffffff', '#10b981'],
+            });
+          } catch {
+            // Non bloquant
+          }
+
+          const nowTime = new Intl.DateTimeFormat('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }).format(new Date());
+
+          setRealtimeToast({
+            id: Math.random().toString(),
+            message: "🎉 Un de vos invités vient d'entrer à l'ASTRA ! +1 point au classement",
+            time: nowTime,
+          });
+
+          setLiveEntriesDelta((prev) => prev + 1);
+
+          setTimeout(() => {
+            setRealtimeToast(null);
+          }, 6000);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [promoter?.id]);
+
   const currentPromoterRank = leaderboard.find((item) => item.id === promoter?.id);
-  const personalEntries = currentPromoterRank?.entries_count || 0;
+  const personalEntries = (currentPromoterRank?.entries_count || 0) + liveEntriesDelta;
   const personalRegs = currentPromoterRank?.registrations_count || 0;
-  const personalRate = currentPromoterRank?.attendance_rate || 0;
+  const personalRate = personalRegs > 0 ? Math.min(100, Math.round((personalEntries / personalRegs) * 100)) : 0;
   const personalRank = currentPromoterRank?.rank || 1;
+  const rankInfo = getPromoterRank(personalEntries);
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const promoterPublicUrl = promoter ? `${appOrigin}/rp/${promoter.slug}` : '';
@@ -339,6 +424,22 @@ export default function PromoterDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* ALERTE TEMPS RÉEL "PING ENTRÉE" */}
+      {realtimeToast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] p-4 rounded-2xl bg-gradient-to-r from-[#e5b85c] via-[#d4a037] to-[#e5b85c] text-black font-black text-sm shadow-[0_10px_30px_rgba(229,184,92,0.5)] border-2 border-white flex items-center justify-between gap-3 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🎉</span>
+            <div>
+              <p className="leading-tight">{realtimeToast.message}</p>
+              <span className="text-[10px] uppercase font-bold text-black/70">Validé à la porte à {realtimeToast.time}</span>
+            </div>
+          </div>
+          <button onClick={() => setRealtimeToast(null)} className="p-1 hover:bg-black/10 rounded-lg cursor-pointer">
+            <X className="w-4 h-4 text-black" />
+          </button>
+        </div>
+      )}
+
       {/* Profil Header Card */}
       <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
@@ -366,8 +467,11 @@ export default function PromoterDashboardPage() {
                     {promoter.first_name.charAt(0)}{promoter.last_name.charAt(0)}
                   </div>
                 )}
-                <span className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#e5b85c] text-black shadow">
-                  RP VIP
+                <span
+                  className="absolute -bottom-1 -right-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase shadow tracking-wider"
+                  style={{ backgroundColor: rankInfo.currentRank.color, color: '#000000' }}
+                >
+                  {rankInfo.currentRank.badge}
                 </span>
               </div>
             </div>
@@ -492,6 +596,77 @@ export default function PromoterDashboardPage() {
         </div>
       </div>
 
+      {/* JAUGE DE PROGRESSION DU RANG RP */}
+      <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3.5">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-lg shrink-0"
+              style={{
+                backgroundColor: `${rankInfo.currentRank.color}20`,
+                border: `1.5px solid ${rankInfo.currentRank.color}60`,
+              }}
+            >
+              {rankInfo.currentRank.iconName === 'Crown'
+                ? '👑'
+                : rankInfo.currentRank.iconName === 'Trophy'
+                ? '💎'
+                : rankInfo.currentRank.iconName === 'Flame'
+                ? '🥇'
+                : rankInfo.currentRank.iconName === 'Sparkles'
+                ? '🥈'
+                : '🥉'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase font-extrabold tracking-wider text-gray-400">Palier de Prestige</span>
+                <span
+                  className="px-2.5 py-0.5 rounded-full text-xs font-black tracking-wider"
+                  style={{
+                    backgroundColor: `${rankInfo.currentRank.color}25`,
+                    color: rankInfo.currentRank.color,
+                    border: `1px solid ${rankInfo.currentRank.color}60`,
+                  }}
+                >
+                  {rankInfo.currentRank.name}
+                </span>
+              </div>
+              <p className="text-xs text-gray-300 font-medium mt-0.5">
+                ★ Avantage débloqué : {rankInfo.currentRank.perk}
+              </p>
+            </div>
+          </div>
+
+          {rankInfo.nextRank && (
+            <div className="text-left sm:text-right w-full sm:w-auto">
+              <span className="text-[11px] font-bold text-gray-400">
+                Prochain échelon : <strong className="text-white">{rankInfo.nextRank.name}</strong>
+              </span>
+              <p className="text-xs font-black text-[#e5b85c]">
+                Plus que {rankInfo.entriesToNext} {rankInfo.entriesToNext > 1 ? 'entrées' : 'entrée'} !
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Barre de progression */}
+        <div className="w-full bg-[#161924] rounded-full h-3.5 p-0.5 border border-[#232738] overflow-hidden relative">
+          <div
+            className="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-[#e5b85c] via-[#f59e0b] to-[#10b981]"
+            style={{ width: `${rankInfo.progressPercent}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] text-gray-500 font-semibold">
+          <span>{rankInfo.currentRank.minEntries} entrées ({rankInfo.currentRank.name})</span>
+          <span>{rankInfo.progressPercent}% vers l&apos;échelon suivant</span>
+          {rankInfo.nextRank ? (
+            <span>{rankInfo.nextRank.minEntries} entrées ({rankInfo.nextRank.name})</span>
+          ) : (
+            <span className="text-emerald-400 font-bold">Rang Légende Atteint ★</span>
+          )}
+        </div>
+      </div>
+
       {/* KIT DE PARTAGE 1-CLIC */}
       <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-6 sm:p-7 shadow-xl space-y-5">
         <div className="flex items-center justify-between">
@@ -517,6 +692,37 @@ export default function PromoterDashboardPage() {
             <span>Tester ma page</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
+        </div>
+
+        {/* BANNIÈRE PHARE : STUDIO STORY INSTAGRAM HD (9:16) */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#e5b85c]/25 via-[#1e1910] to-[#e5b85c]/10 border-2 border-[#e5b85c] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5 text-center sm:text-left">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#e5b85c] to-[#c59837] flex items-center justify-center text-black shadow-lg shrink-0">
+              <Sparkles className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <h3 className="text-base font-black text-white">
+                  Studio Story Instagram HD (Format 9:16)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black text-[#e5b85c] border border-[#e5b85c]/50">
+                  Générateur 1-Clic
+                </span>
+              </div>
+              <p className="text-xs text-gray-300 mt-0.5">
+                Créez et téléchargez votre affiche officielle prête pour vos Stories avec la zone de sticker de lien !
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setStoryModalOpen(true)}
+            className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:from-[#f0c773] hover:to-[#e5b85c] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl active:scale-98 transition-all cursor-pointer shrink-0"
+          >
+            <Sparkles className="w-4 h-4 text-black" />
+            <span>Créer ma Story HD</span>
+          </button>
         </div>
 
         {/* Barre du lien permanent */}
@@ -976,6 +1182,17 @@ export default function PromoterDashboardPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* MODAL STUDIO STORY INSTAGRAM HD (9:16) */}
+      {storyModalOpen && promoter && (
+        <InstagramStoryModal
+          isOpen={storyModalOpen}
+          onClose={() => setStoryModalOpen(false)}
+          promoter={promoter}
+          upcomingEvent={upcomingEvent}
+          entriesCount={personalEntries}
+        />
       )}
     </div>
   );

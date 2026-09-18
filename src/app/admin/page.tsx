@@ -10,7 +10,12 @@ import {
   PlusCircle, 
   ArrowUpRight,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Clock,
+  Flame,
+  Award,
+  BarChart3,
+  Activity
 } from 'lucide-react';
 import { formatFrenchDate } from '@/lib/utils';
 
@@ -43,6 +48,8 @@ export default async function AdminDashboardPage() {
     { count: entriesThisYear },
     { data: nextEvent },
     { data: yearlyEntries },
+    { data: chartEntriesList },
+    { data: regGuestList },
   ] = await Promise.all([
     // 1. Entrées aujourd'hui
     supabase
@@ -82,8 +89,69 @@ export default async function AdminDashboardPage() {
         promoter:promoters(first_name, last_name, slug)
       `)
       .gte('scanned_at', yearStart)
-      .eq('status', 'valid'),
+      .in('status', ['valid', 'VALID']),
+    // 7. Entrées pour la courbe d'affluence heure par heure
+    supabase
+      .from('entries')
+      .select('scanned_at')
+      .in('status', ['valid', 'VALID'])
+      .order('scanned_at', { ascending: false })
+      .limit(500),
+    // 8. Inscriptions pour le calcul de rétention
+    supabase
+      .from('registrations')
+      .select('guest_id')
+      .limit(1000),
   ]);
+
+  // Calcul Courbe d'Affluence Heure par Heure (Nightclub Peak Curve)
+  const hourlySlots = [
+    { label: '22h-23h', hour: 22, count: 0 },
+    { label: '23h-00h', hour: 23, count: 0 },
+    { label: '00h-01h', hour: 0, count: 0 },
+    { label: '01h-02h', hour: 1, count: 0 },
+    { label: '02h-03h', hour: 2, count: 0 },
+    { label: '03h-04h', hour: 3, count: 0 },
+    { label: '04h-05h', hour: 4, count: 0 },
+  ];
+
+  // Parcourir les scans pour incrémenter les tranches
+  (chartEntriesList || []).forEach((e) => {
+    if (!e.scanned_at) return;
+    const d = new Date(e.scanned_at);
+    // Convertir en heure de Paris
+    const parisHour = parseInt(
+      new Intl.DateTimeFormat('fr-FR', {
+        hour: 'numeric',
+        hour12: false,
+        timeZone: 'Europe/Paris'
+      }).format(d),
+      10
+    );
+
+    const slot = hourlySlots.find((s) => s.hour === parisHour);
+    if (slot) {
+      slot.count += 1;
+    } else if (parisHour >= 4 && parisHour <= 6) {
+      hourlySlots[6].count += 1;
+    }
+  });
+
+  const totalAffluenceCount = hourlySlots.reduce((acc, s) => acc + s.count, 0);
+  const maxAffluenceSlot = Math.max(...hourlySlots.map((s) => s.count), 1);
+  const peakSlot = hourlySlots.reduce((prev, curr) => (curr.count > prev.count ? curr : prev), hourlySlots[3]);
+
+  // Calcul Rétention & Fidélité Invités
+  const guestRegMap = new Map<string, number>();
+  (regGuestList || []).forEach((r) => {
+    if (r.guest_id) {
+      guestRegMap.set(r.guest_id, (guestRegMap.get(r.guest_id) || 0) + 1);
+    }
+  });
+
+  const totalUniqueGuests = guestRegMap.size;
+  const repeatGuests = Array.from(guestRegMap.values()).filter((c) => c >= 2).length;
+  const guestRetentionRate = totalUniqueGuests > 0 ? Math.round((repeatGuests / totalUniqueGuests) * 100) : 0;
 
   // Agréger par RP
   const promoterCountMap: Record<string, { name: string; slug: string; count: number }> = {};
@@ -221,6 +289,142 @@ export default async function AdminDashboardPage() {
             Entrées réelles comptabilisées
           </p>
         </div>
+      </div>
+
+      {/* SECTION ANALYTIQUE : COURBE D'AFFLUENCE ET RÉTENTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* COURBE D'AFFLUENCE HEURE PAR HEURE */}
+        <div className="lg:col-span-2 bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-[#e5b85c]" />
+                <h2 className="font-bold text-white text-base">
+                  Courbe d&apos;Affluence Heure par Heure
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-[#e5b85c]/10 border border-[#e5b85c]/20 text-[#e5b85c] text-[11px] font-bold flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-[#e5b85c]" />
+                  <span>Pic : {peakSlot.label} ({peakSlot.count} entrées)</span>
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 mb-6">
+              Distribution des scans de billets pour anticiper le rush à la porte et optimiser le staff.
+            </p>
+
+            {/* Visual Bars */}
+            <div className="grid grid-cols-7 gap-2 sm:gap-3 items-end h-44 pt-6 pb-2 px-1 border-b border-[#202536]">
+              {hourlySlots.map((slot) => {
+                const heightPercent = maxAffluenceSlot > 0 ? Math.max(Math.round((slot.count / maxAffluenceSlot) * 100), slot.count > 0 ? 12 : 4) : 4;
+                const isPeak = slot.label === peakSlot.label && slot.count > 0;
+
+                return (
+                  <div key={slot.label} className="flex flex-col items-center h-full justify-end group">
+                    <span className="text-[11px] font-black text-gray-400 group-hover:text-white mb-1.5 transition-colors">
+                      {slot.count}
+                    </span>
+                    <div className="w-full bg-[#181b28] rounded-t-xl overflow-hidden relative flex items-end justify-center h-full max-h-32">
+                      <div
+                        style={{ height: `${heightPercent}%` }}
+                        className={`w-full rounded-t-lg transition-all duration-500 ${
+                          isPeak
+                            ? 'bg-gradient-to-t from-[#d4a037] to-[#f3cb77] shadow-[0_0_16px_rgba(229,184,92,0.4)]'
+                            : slot.count > 0
+                            ? 'bg-gradient-to-t from-emerald-700 to-emerald-400'
+                            : 'bg-white/5'
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-[10px] sm:text-[11px] mt-2 font-bold whitespace-nowrap ${
+                      isPeak ? 'text-[#e5b85c]' : 'text-gray-400'
+                    }`}>
+                      {slot.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-4 text-[11px] text-gray-400">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#e5b85c]" />
+              <span>Plage horaire clubbing (22h00 → 05h00)</span>
+            </span>
+            <span className="font-semibold text-white">
+              Total analysé : <strong className="text-[#e5b85c]">{totalAffluenceCount}</strong> scans
+            </span>
+          </div>
+        </div>
+
+        {/* FIDÉLITÉ & RÉTENTION INVITÉS */}
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-[#e5b85c]" />
+                <h2 className="font-bold text-white text-base">Fidélité &amp; Rétention</h2>
+              </div>
+              <Link
+                href="/admin/guests"
+                className="text-xs font-semibold text-[#e5b85c] hover:underline"
+              >
+                Voir base
+              </Link>
+            </div>
+
+            <p className="text-xs text-gray-400 mb-6">
+              Part des invités qui reviennent au club sur plusieurs événements distincts.
+            </p>
+
+            {/* Grand Indicateur de Rétention */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-[#151824] to-[#10121a] border border-[#232738] mb-5 text-center relative overflow-hidden">
+              <div className="text-4xl font-black text-emerald-400 mb-1">
+                {guestRetentionRate}%
+              </div>
+              <p className="text-xs font-bold text-white uppercase tracking-wider">
+                Taux de Fidélité Global
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {repeatGuests} habitués sur {totalUniqueGuests} profils uniques
+              </p>
+              
+              {/* Barre de progression */}
+              <div className="w-full bg-[#202534] h-2 rounded-full mt-3 overflow-hidden">
+                <div 
+                  style={{ width: `${Math.min(guestRetentionRate, 100)}%` }} 
+                  className="h-full bg-gradient-to-r from-emerald-500 to-[#e5b85c] rounded-full"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#141722] border border-[#232738]">
+                <span className="text-gray-400">Invités Multi-Pass (≥ 2 sorties)</span>
+                <span className="font-bold text-[#e5b85c]">{repeatGuests} pers.</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#141722] border border-[#232738]">
+                <span className="text-gray-400">Total Invités Répertoriés</span>
+                <span className="font-bold text-white">{totalUniqueGuests} pers.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-[#1d212f]">
+            <Link
+              href="/admin/guests"
+              className="w-full py-2 px-3 bg-[#171a25] hover:bg-[#202534] border border-[#272d3f] text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>Gérer les profils &amp; RGPD</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
       </div>
 
       {/* Grille principale : Soirée en cours + Top RP */}

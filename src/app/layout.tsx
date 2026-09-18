@@ -10,6 +10,11 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "ASTRA RP — Club ASTRA Orléans",
   description: "Système officiel de gestion des RP et entrées du Club ASTRA Orléans",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/astra-logo.png",
+    apple: "/astra-logo.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -32,8 +37,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${inter.className} h-full antialiased dark`}>
+      <head>
+        <link rel="apple-touch-icon" href="/astra-logo.png" />
+      </head>
       <body className="min-h-full flex flex-col bg-[#08090d] text-gray-100">
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                    console.log('SW registration error:', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

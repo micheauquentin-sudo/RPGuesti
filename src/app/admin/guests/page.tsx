@@ -10,7 +10,11 @@ import {
   Trash2, 
   Phone, 
   ShieldCheck, 
-  AlertCircle 
+  AlertCircle,
+  Heart,
+  Award,
+  Users,
+  Flame
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
@@ -89,6 +93,10 @@ export default function AdminGuestsPage() {
     return fullName.includes(q) || phone.includes(q) || insta.includes(q);
   });
 
+  const totalGuests = guests.length;
+  const repeatGuests = guests.filter((g) => g.total_entries >= 2 || g.total_registrations >= 2).length;
+  const retentionRate = totalGuests > 0 ? Math.round((repeatGuests / totalGuests) * 100) : 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -98,7 +106,7 @@ export default function AdminGuestsPage() {
             Répertoire Invités
           </h1>
           <p className="text-gray-400 text-xs sm:text-sm mt-1">
-            Gestion de la base invités • Conforme RGPD (anonymisation et suppression).
+            Gestion de la base invités • Rétention &amp; Conforme RGPD.
           </p>
         </div>
 
@@ -111,6 +119,42 @@ export default function AdminGuestsPage() {
             placeholder="Rechercher nom, téléphone, insta..."
             className="w-full pl-9 pr-3 py-2 bg-[#0f1118] border border-[#1d212f] rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
           />
+        </div>
+      </div>
+
+      {/* Cartes Métriques de Rétention & Fidélité */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Base Invités Unique</p>
+            <p className="text-2xl font-black text-white mt-0.5">{totalGuests}</p>
+            <p className="text-[10px] text-gray-500">Profils enregistrés</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Invités Fidèles (2+)</p>
+            <p className="text-2xl font-black text-[#e5b85c] mt-0.5">{repeatGuests}</p>
+            <p className="text-[10px] text-gray-500">Revenus sur plusieurs soirées</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center">
+            <Award className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Taux de Rétention</p>
+            <p className="text-2xl font-black text-emerald-400 mt-0.5">{retentionRate}%</p>
+            <p className="text-[10px] text-gray-500">Habitués du Club ASTRA</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Flame className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
@@ -144,8 +188,15 @@ export default function AdminGuestsPage() {
               ) : (
                 filtered.map((g) => (
                   <tr key={g.id} className="hover:bg-[#141722]/80 transition-colors">
-                    <td className="py-4 px-5 font-bold text-white">
-                      {g.first_name} {g.last_name}
+                    <td className="py-4 px-5 text-white">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">{g.first_name} {g.last_name}</span>
+                        {(g.total_entries >= 2 || g.total_registrations >= 2) && (
+                          <span className="px-1.5 py-0.5 rounded bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30 text-[9px] font-black uppercase tracking-wider shrink-0">
+                            ★ VIP HABITUÉ
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-4 px-4 text-gray-300">

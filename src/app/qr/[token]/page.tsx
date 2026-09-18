@@ -3,7 +3,22 @@
 import { useEffect, useState, useRef, use } from 'react';
 import QRCode from 'qrcode';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
-import { Sparkles, Calendar, Clock, Download, AlertCircle, CheckCircle2, ShieldCheck, SunMedium, XCircle, Share2, Check } from 'lucide-react';
+import { 
+  Sparkles, 
+  Calendar, 
+  Clock, 
+  Download, 
+  AlertCircle, 
+  CheckCircle2, 
+  ShieldCheck, 
+  SunMedium, 
+  XCircle, 
+  Share2, 
+  Check,
+  Users,
+  MessageCircle,
+  Copy
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface RegistrationDetail {
@@ -25,6 +40,7 @@ interface RegistrationDetail {
     first_name: string;
     last_name: string;
     avatar_url?: string | null;
+    slug?: string;
   };
 }
 
@@ -347,6 +363,53 @@ export default function GuestQrPassPage({
   const [qrGenerated, setQrGenerated] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  const getInviteUrl = () => {
+    if (typeof window === 'undefined') return '';
+    const slug = registration?.promoter?.slug;
+    if (slug) {
+      return `${window.location.origin}/rp/${slug}`;
+    }
+    return window.location.origin;
+  };
+
+  const getShareText = () => {
+    const evName = registration?.event?.name || 'la soirée';
+    return `Je vais à l'ASTRA Club pour "${evName}" ! Prends ton entrée 100% GRATUITE sur la guestlist officielle ici avant que ce soit complet : ${getInviteUrl()}`;
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = getShareText();
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    const inviteUrl = getInviteUrl();
+    const text = getShareText();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Entrée 100% Gratuite ASTRA Club',
+          text: text,
+          url: inviteUrl,
+        });
+      } catch {
+        // Ignorer l'annulation
+      }
+    } else {
+      handleCopyShareLink();
+    }
+  };
+
+  const handleCopyShareLink = () => {
+    const inviteUrl = getInviteUrl();
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl);
+    setCopiedShareLink(true);
+    setTimeout(() => setCopiedShareLink(false), 2500);
+  };
 
   useEffect(() => {
     async function loadRegistration() {
@@ -707,6 +770,66 @@ export default function GuestQrPassPage({
             <AlertCircle className="w-4 h-4 text-rose-500" />
             <span>Billet expiré (Soirée passée)</span>
           </button>
+        )}
+
+        {/* SECTION VIRALE : PARTAGER À MES POTES */}
+        {!isEventExpired && (
+          <div className="mt-4 p-4 bg-gradient-to-b from-[#141724] to-[#0f111a] border border-[#e5b85c]/30 rounded-2xl text-left shadow-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-full bg-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center">
+                <Users className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                  Tu viens en équipe ?
+                </h4>
+                <p className="text-[11px] text-[#e5b85c] font-semibold">
+                  Fais passer le bon plan à tes potes avant fermeture
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+              Partage ce lien pour qu&apos;ils réservent leur <strong className="text-white">entrée 100% GRATUITE</strong> sur la guestlist officielle de <strong className="text-[#e5b85c]">{registration?.promoter?.first_name || 'notre RP'}</strong>.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleShareWhatsApp}
+                className="py-2.5 px-3 bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 text-[#25D366] font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="py-2.5 px-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+              >
+                <Share2 className="w-3.5 h-3.5 text-[#e5b85c]" />
+                <span>Partager</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyShareLink}
+              className="w-full mt-2 py-2 px-3 bg-[#191c28] hover:bg-[#202534] border border-[#2e3348] text-gray-300 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+            >
+              {copiedShareLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">Lien d&apos;invitation copié !</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-gray-400" />
+                  <span>Copier le lien d&apos;inscription pour mes potes</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
 
         <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-gray-500">
