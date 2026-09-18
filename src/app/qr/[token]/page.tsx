@@ -17,7 +17,10 @@ import {
   Check,
   Users,
   MessageCircle,
-  Copy
+  Copy,
+  CalendarPlus,
+  Navigation,
+  Car
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -358,12 +361,26 @@ export default function GuestQrPassPage({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [registration, setRegistration] = useState<RegistrationDetail | null>(null);
+  const [activeToken, setActiveToken] = useState(token);
+  const [companionToken, setCompanionToken] = useState<string | null>(null);
+  const [companionName, setCompanionName] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [qrGenerated, setQrGenerated] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const cToken = sp.get('companion');
+      const cName = sp.get('compName');
+      if (cToken) setCompanionToken(cToken);
+      if (cName) setCompanionName(decodeURIComponent(cName));
+    }
+  }, []);
 
   const getInviteUrl = () => {
     if (typeof window === 'undefined') return '';
@@ -411,13 +428,74 @@ export default function GuestQrPassPage({
     setTimeout(() => setCopiedShareLink(false), 2500);
   };
 
+  const handleDownloadIcs = () => {
+    if (!registration) return;
+    const { event, promoter, guest } = registration;
+    const [year, month, day] = event.event_date.split('-').map(Number);
+    const [startH, startM] = (event.start_time || '23:00').split(':').map(Number);
+    const [endH, endM] = (event.end_time || '05:00').split(':').map(Number);
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const startStr = `${year}${pad(month)}${pad(day)}T${pad(startH)}${pad(startM)}00Z`;
+    const endDay = endH < startH ? day + 1 : day;
+    const endStr = `${year}${pad(month)}${pad(endDay)}T${pad(endH)}${pad(endM)}00Z`;
+
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ASTRA Nightclub//Pass Invité//FR',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:astra-pass-${registration.qr_token}@clubastra.fr`,
+      `DTSTAMP:${startStr}`,
+      `DTSTART:${startStr}`,
+      `DTEND:${endStr}`,
+      `SUMMARY:★ SOIRÉE ASTRA : ${event.name} (Pass Gratuit)`,
+      `DESCRIPTION:Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.first_name}. Consigne obligatoire : demandez une entrée ASTRA à votre arrivée ! Lien du pass : ${window.location.href}`,
+      'LOCATION:Club ASTRA, Orléans',
+      'STATUS:CONFIRMED',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT2H',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Rappel : Ta soirée ASTRA commence dans 2h ! N oublie pas ton QR pass.',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const blob = new Blob([icsLines], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', `ASTRA-${event.name.replace(/[^a-zA-Z0-9]/g, '_')}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleOpenGoogleCalendar = () => {
+    if (!registration) return;
+    const { event, promoter, guest } = registration;
+    const [year, month, day] = event.event_date.split('-').map(Number);
+    const [startH, startM] = (event.start_time || '23:00').split(':').map(Number);
+    const [endH, endM] = (event.end_time || '05:00').split(':').map(Number);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const startStr = `${year}${pad(month)}${pad(day)}T${pad(startH)}${pad(startM)}00Z`;
+    const endDay = endH < startH ? day + 1 : day;
+    const endStr = `${year}${pad(month)}${pad(endDay)}T${pad(endH)}${pad(endM)}00Z`;
+    const title = encodeURIComponent(`★ SOIRÉE ASTRA : ${event.name} (Pass Gratuit)`);
+    const details = encodeURIComponent(`Billet Invité 100% Gratuit pour ${guest.first_name} via ${promoter.first_name}. Demandez une entrée ASTRA à l'arrivée ! Lien : ${window.location.href}`);
+    const loc = encodeURIComponent('Club ASTRA, Orléans');
+    window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${loc}`, '_blank');
+  };
+
   useEffect(() => {
     async function loadRegistration() {
       setLoading(true);
       setErrorMsg(null);
 
       try {
-        const res = await fetch(`/api/pass?token=${encodeURIComponent(token)}`);
+        const res = await fetch(`/api/pass?token=${encodeURIComponent(activeToken)}`);
         const json = await res.json();
 
         if (!res.ok || !json.success || !json.data) {
@@ -448,7 +526,7 @@ export default function GuestQrPassPage({
     }
 
     loadRegistration();
-  }, [token]);
+  }, [activeToken]);
 
   // Génération du QR code haute résolution
   useEffect(() => {
@@ -549,8 +627,30 @@ export default function GuestQrPassPage({
       {/* Background glow */}
       <div className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-sm relative z-10">
-        {/* Pass Card */}
+      <div className="relative z-10 w-full max-w-md text-center">
+        {/* Switcher Duo (+1) si inscription double */}
+        {companionToken && (
+          <div className="mb-3 p-1 bg-[#131622] border border-[#e5b85c]/40 rounded-2xl flex gap-1 shadow-lg">
+            <button
+              onClick={() => setActiveToken(token)}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                activeToken === token ? 'bg-[#e5b85c] text-black shadow' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Mon Pass
+            </button>
+            <button
+              onClick={() => setActiveToken(companionToken)}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                activeToken === companionToken ? 'bg-[#e5b85c] text-black shadow' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Pass +1 {companionName ? `(${companionName})` : ''}
+            </button>
+          </div>
+        )}
+
+        {/* CARTE TICKET OFFICIEL */}
         <div className="bg-[#0f1118] border border-[#232738] rounded-3xl overflow-hidden shadow-2xl relative">
           {/* BANDEAU ENTRÉE 100% GRATUITE HAUTE VISIBILITÉ */}
           {!isEventExpired ? (
@@ -829,6 +929,76 @@ export default function GuestQrPassPage({
                 </>
               )}
             </button>
+          </div>
+        )}
+
+        {/* CALENDRIER & RAPPEL AUTOMATIQUE */}
+        {!isEventExpired && (
+          <div className="mt-3 p-3.5 bg-[#12141e] border border-[#232738] rounded-2xl text-left">
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarPlus className="w-4 h-4 text-[#e5b85c]" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                Ne rate pas ta soirée (Rappel 2h avant)
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadIcs}
+                className="py-2 px-3 bg-[#191c28] hover:bg-[#222636] border border-[#2d3246] rounded-xl text-xs font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>Apple / Outlook (.ics)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenGoogleCalendar}
+                className="py-2 px-3 bg-[#191c28] hover:bg-[#222636] border border-[#2d3246] rounded-xl text-xs font-semibold text-gray-200 flex items-center justify-center gap-1.5 transition-all"
+              >
+                <span>Google Agenda</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* VENIR AU CLUB : VTC & GPS */}
+        {!isEventExpired && (
+          <div className="mt-3 p-3.5 bg-[#12141e] border border-[#232738] rounded-2xl text-left">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Car className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Venir au Club (Orléans)
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400">VTC &amp; Itinéraire</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <a
+                href="https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=Club%20ASTRA%20Orl%C3%A9ans"
+                target="_blank"
+                rel="noreferrer"
+                className="py-2 px-2 bg-black hover:bg-neutral-900 border border-neutral-700 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition-all"
+              >
+                <span>Uber</span>
+              </a>
+              <a
+                href="https://www.google.com/maps/dir/?api=1&destination=Club+ASTRA+Orleans"
+                target="_blank"
+                rel="noreferrer"
+                className="py-2 px-2 bg-[#191c28] hover:bg-[#222636] border border-[#2d3246] rounded-xl text-xs font-bold text-gray-200 flex items-center justify-center gap-1 transition-all"
+              >
+                <Navigation className="w-3 h-3 text-blue-400" />
+                <span>Maps</span>
+              </a>
+              <a
+                href="https://waze.com/ul?q=Club+ASTRA+Orleans&navigate=yes"
+                target="_blank"
+                rel="noreferrer"
+                className="py-2 px-2 bg-[#191c28] hover:bg-[#222636] border border-[#2d3246] rounded-xl text-xs font-bold text-gray-200 flex items-center justify-center gap-1 transition-all"
+              >
+                <span>Waze</span>
+              </a>
+            </div>
           </div>
         )}
 

@@ -24,7 +24,9 @@ import {
   Upload,
   Crown,
   Zap,
-  Bell
+  Bell,
+  Eye,
+  ArrowRight
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
@@ -119,6 +121,7 @@ interface PromoterData {
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;
+  views_count?: number;
 }
 
 interface LeaderboardItem {
@@ -128,6 +131,7 @@ interface LeaderboardItem {
   instagram_handle: string | null;
   slug: string;
   avatar_url: string | null;
+  views_count?: number;
   entries_count: number;
   registrations_count: number;
   attendance_rate: number;
@@ -315,6 +319,14 @@ export default function PromoterDashboardPage() {
   const personalRate = personalRegs > 0 ? Math.min(100, Math.round((personalEntries / personalRegs) * 100)) : 0;
   const personalRank = currentPromoterRank?.rank || 1;
   const rankInfo = getPromoterRank(personalEntries);
+
+  const promoterViews = promoter?.views_count || 0;
+  const clickToRegRate = promoterViews > 0
+    ? Math.min(100, Math.round((personalRegs / promoterViews) * 100))
+    : (personalRegs > 0 ? 100 : 0);
+  const clickToEntryRate = promoterViews > 0
+    ? Math.min(100, Math.round((personalEntries / promoterViews) * 100))
+    : (personalEntries > 0 ? 100 : 0);
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const promoterPublicUrl = promoter ? `${appOrigin}/rp/${promoter.slug}` : '';
@@ -596,6 +608,94 @@ export default function PromoterDashboardPage() {
         </div>
       </div>
 
+      {/* ENTONNOIR DE PERFORMANCE RP (FUNNEL DE CONVERSION) */}
+      <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/30 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-[#e5b85c]" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <span>Entonnoir de Conversion RP</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Live Analytics
+                </span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                Suivez l&apos;efficacité réelle de votre lien personnel, du premier clic jusqu&apos;à l&apos;entrée en boîte
+              </p>
+            </div>
+          </div>
+
+          <div className="text-left sm:text-right bg-[#141724] px-3.5 py-1.5 rounded-xl border border-[#232738]">
+            <span className="text-[10px] uppercase font-bold text-gray-400 block">Efficacité Globale</span>
+            <p className="text-xs font-black text-[#e5b85c]">
+              {clickToEntryRate}% des clics deviennent des entrées
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+          {/* Étape 1 : Visites / Clics */}
+          <div className="p-4 rounded-2xl bg-[#141724] border border-[#232738] flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-blue-400" />
+                  1. Clics &amp; Visites
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold">Étape 1</span>
+              </div>
+              <p className="text-3xl font-black text-white">{promoterViews}</p>
+              <p className="text-[10px] text-gray-400 mt-1">Personnes ayant ouvert votre lien</p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-[#232738]/60 flex items-center justify-between text-xs">
+              <span className="text-gray-400">Taux de génération</span>
+              <span className="font-bold text-blue-400">{clickToRegRate}% convertis</span>
+            </div>
+          </div>
+
+          {/* Étape 2 : Inscriptions / Pass */}
+          <div className="p-4 rounded-2xl bg-[#141724] border border-[#232738] flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-purple-400" />
+                  2. Pass Inscrits
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-bold">Étape 2</span>
+              </div>
+              <p className="text-3xl font-black text-white">{personalRegs}</p>
+              <p className="text-[10px] text-gray-400 mt-1">Pass QR nominatifs téléchargés</p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-[#232738]/60 flex items-center justify-between text-xs">
+              <span className="text-gray-400">Taux de venue</span>
+              <span className="font-bold text-purple-400">{personalRate}% présents</span>
+            </div>
+          </div>
+
+          {/* Étape 3 : Entrées Réelles */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#1c1912] via-[#141724] to-[#141724] border border-[#e5b85c]/30 flex flex-col justify-between relative overflow-hidden group">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-[#e5b85c] uppercase tracking-wider flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-[#e5b85c]" />
+                  3. Entrées Réelles
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#e5b85c]/20 text-[#e5b85c] font-black">Validé</span>
+              </div>
+              <p className="text-3xl font-black text-[#e5b85c]">{personalEntries}</p>
+              <p className="text-[10px] text-gray-300 mt-1">Pass scannés à l&apos;entrée du club</p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-[#e5b85c]/20 flex items-center justify-between text-xs">
+              <span className="text-gray-400">Points Concours</span>
+              <span className="font-extrabold text-[#e5b85c]">+{personalEntries} pts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* JAUGE DE PROGRESSION DU RANG RP */}
       <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -755,34 +855,36 @@ export default function PromoterDashboardPage() {
           </button>
         </div>
 
-        {/* Boutons Réseaux Sociaux */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* WhatsApp */}
+        {/* Boutons Réseaux Sociaux & Partage Direct */}
+        <div className="space-y-3">
+          {/* Bouton WhatsApp Grand Format (Recommandé & Prioritaire) */}
           <button
             onClick={shareViaWhatsApp}
-            className="py-3 px-4 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-black font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-950/40 cursor-pointer active:scale-98"
           >
-            <MessageSquare className="w-4 h-4" />
-            <span>Partager sur WhatsApp</span>
+            <MessageSquare className="w-5 h-5 text-black fill-current" />
+            <span>Envoyer sur WhatsApp (Message d&apos;invitation pré-rempli)</span>
           </button>
 
-          {/* SMS */}
-          <button
-            onClick={shareViaSms}
-            className="py-3 px-4 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
-          >
-            <Send className="w-4 h-4" />
-            <span>Inviter par SMS</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* SMS */}
+            <button
+              onClick={shareViaSms}
+              className="py-3 px-4 rounded-xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+            >
+              <Send className="w-4 h-4" />
+              <span>Inviter par SMS</span>
+            </button>
 
-          {/* Instagram Story / DM Copy */}
-          <button
-            onClick={handleCopyInstaText}
-            className="py-3 px-4 rounded-xl bg-gradient-to-r from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 hover:brightness-125 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
-          >
-            <InstagramIcon className="w-4 h-4 text-rose-400" />
-            <span>{copiedText ? 'Texte Story Copié !' : 'Copier texte Story / DM'}</span>
-          </button>
+            {/* Instagram Story / DM Copy */}
+            <button
+              onClick={handleCopyInstaText}
+              className="py-3 px-4 rounded-xl bg-gradient-to-r from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 hover:brightness-125 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow"
+            >
+              <InstagramIcon className="w-4 h-4 text-rose-400" />
+              <span>{copiedText ? 'Texte Story Copié !' : 'Copier texte Story / DM'}</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -15,13 +15,15 @@ import {
   Search,
   Wifi,
   WifiOff,
-  UserCheck,
+  UserCheck, 
   RefreshCw,
   Clock,
   User,
   Phone,
   Sparkles,
-  X
+  X,
+  Zap,
+  ShieldAlert
 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -71,6 +73,7 @@ export default function MobileScannerPage() {
   const [searchResults, setSearchResults] = useState<SearchCandidate[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState('');
+  const [rushMode, setRushMode] = useState(false);
 
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const autoResumeTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -99,12 +102,23 @@ export default function MobileScannerPage() {
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.35);
-      } else {
+      } else if (type === 'error') {
         osc.frequency.setValueAtTime(220, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.3);
+      } else {
+        // Alarme sirène pour individu blacklisté
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.18);
+        osc.frequency.linearRampToValueAtTime(700, audioCtx.currentTime + 0.36);
+        osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.54);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.6);
       }
     } catch {
       // Audio ignoré si bloqué
@@ -158,11 +172,14 @@ export default function MobileScannerPage() {
 
       // Haptique et son
       if (data.status === 'VALID') {
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        if (navigator.vibrate) navigator.vibrate(rushMode ? [50] : [100, 50, 100]);
         playFeedbackTone('success');
       } else if (data.status === 'ALREADY_USED') {
         if (navigator.vibrate) navigator.vibrate([300]);
         playFeedbackTone('warning');
+      } else if (data.status === 'BLACKLISTED') {
+        if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
+        playFeedbackTone('error');
       } else {
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         playFeedbackTone('error');
@@ -180,12 +197,16 @@ export default function MobileScannerPage() {
         ...prev.slice(0, 19),
       ]);
 
-      // Réarmement automatique après 1.8s
+      // Réarmement automatique adapté (Mode Rush = 650ms, sinon 1.8s)
+      const resumeDelay = rushMode 
+        ? (data.status === 'VALID' ? 650 : 1100) 
+        : (data.status === 'BLACKLISTED' ? 3500 : 1800);
+
       if (autoResumeTimerRef.current) clearTimeout(autoResumeTimerRef.current);
       autoResumeTimerRef.current = setTimeout(() => {
         setScanResult(null);
         setIsProcessing(false);
-      }, 1800);
+      }, resumeDelay);
 
     } catch (err: unknown) {
       console.error('Scan error, saving offline:', err);
@@ -455,6 +476,19 @@ export default function MobileScannerPage() {
             </button>
           )}
 
+          {/* Bouton Mode Rush */}
+          <button
+            onClick={() => setRushMode(!rushMode)}
+            className={`p-2 rounded-full border backdrop-blur transition-all flex items-center justify-center ${
+              rushMode
+                ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.6)]'
+                : 'bg-white/10 text-white/70 border-white/20 hover:text-white'
+            }`}
+            title={rushMode ? 'Mode Rush Actif (Cadence 0.6s)' : 'Activer Mode Rush (Cadence 0.6s)'}
+          >
+            <Zap className={`w-4 h-4 ${rushMode ? 'fill-current' : ''}`} />
+          </button>
+
           {/* Bouton Recherche Secours (Nom / Téléphone / Code) */}
           <button
             onClick={() => setRescueModalOpen(true)}
@@ -499,6 +533,11 @@ export default function MobileScannerPage() {
         {/* Cadre de visée stylisé ASTRA */}
         {scannerActive && !scanResult && (
           <div className="absolute pointer-events-none flex flex-col items-center">
+            {rushMode && (
+              <span className="mb-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 text-[10px] font-black uppercase tracking-wider animate-pulse backdrop-blur">
+                ⚡ MODE RUSH ACTIF (0.6s)
+              </span>
+            )}
             <div className="w-64 h-64 border-2 border-white/30 rounded-3xl relative overflow-hidden">
               {/* Coins dorés */}
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#e5b85c] rounded-tl-2xl" />
@@ -539,6 +578,8 @@ export default function MobileScannerPage() {
                 ? 'bg-emerald-950/95 border-8 border-emerald-500' 
                 : scanResult.status === 'ALREADY_USED'
                 ? 'bg-amber-950/95 border-8 border-amber-500'
+                : scanResult.status === 'BLACKLISTED'
+                ? 'bg-red-950/98 border-8 border-red-600 animate-pulse shadow-[inset_0_0_80px_rgba(239,68,68,0.7)]'
                 : 'bg-rose-950/95 border-8 border-rose-500'
             }`}
           >
@@ -588,6 +629,27 @@ export default function MobileScannerPage() {
                 )}
                 <p className="text-xs text-amber-300/80 uppercase tracking-wider">
                   Entrée refusée • Cliquez pour continuer
+                </p>
+              </div>
+            )}
+
+            {scanResult.status === 'BLACKLISTED' && (
+              <div className="text-center animate-in zoom-in-95 duration-150">
+                <div className="w-24 h-24 rounded-full bg-red-600 text-white flex items-center justify-center mx-auto mb-6 shadow-[0_0_60px_rgba(239,68,68,0.9)] animate-bounce">
+                  <ShieldAlert className="w-16 h-16 stroke-[2.5]" />
+                </div>
+                <span className="inline-block px-4 py-1.5 rounded-full bg-red-600 text-white font-black text-sm uppercase tracking-widest mb-3 shadow-lg">
+                  ⛔ ACCÈS STRICTEMENT REFUSÉ
+                </span>
+                <h1 className="text-3xl font-black text-white mb-2">
+                  {scanResult.guest_name}
+                </h1>
+                <div className="p-3.5 bg-black/60 rounded-2xl border border-red-500/50 max-w-xs mx-auto mb-6 text-red-200 text-xs">
+                  <p className="font-extrabold uppercase text-red-400 mb-1">INDIVIDU SIGNALÉ SUR BLACKLIST</p>
+                  <p>{scanResult.message}</p>
+                </div>
+                <p className="text-xs text-red-300 font-bold uppercase tracking-wider">
+                  Avertir le chef de sécurité • Cliquez pour continuer
                 </p>
               </div>
             )}

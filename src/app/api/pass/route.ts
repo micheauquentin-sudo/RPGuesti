@@ -65,6 +65,11 @@ async function ensureSecurityPolicies() {
               SELECT id FROM public.promoters WHERE profile_id = auth.uid()
           ) OR public.is_staff_or_admin()
       );
+
+      -- 4. Colonnes Blacklist Invités & Vues Liens RP
+      ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT false;
+      ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS blacklist_reason TEXT;
+      ALTER TABLE public.promoters ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0;
     `);
     await client.end();
     migrationChecked = true;

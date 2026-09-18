@@ -26,7 +26,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { promoter_slug, event_id, first_name, last_name, phone, instagram_handle } = body;
+    const { 
+      promoter_slug, 
+      event_id, 
+      first_name, 
+      last_name, 
+      phone, 
+      instagram_handle,
+      companion_first_name,
+      companion_last_name
+    } = body;
 
     if (!promoter_slug || !event_id || !first_name || !last_name) {
       return NextResponse.json(
@@ -192,10 +201,73 @@ export async function POST(request: Request) {
       },
     });
 
+    // Inscription du +1 (Accompagnateur) si renseigné
+    let companionToken: string | null = null;
+    let companionFullName: string | null = null;
+
+    if (companion_first_name && companion_last_name) {
+      const cleanCompFirst = sanitize(companion_first_name).slice(0, MAX_NAME_LENGTH);
+      const cleanCompLast = sanitize(companion_last_name).slice(0, MAX_NAME_LENGTH);
+
+      if (cleanCompFirst && cleanCompLast) {
+        companionFullName = `${cleanCompFirst} ${cleanCompLast}`;
+        let compGuestId: string | null = null;
+
+        const { data: existComp } = await supabase
+          .from('guests')
+          .select('id')
+          .ilike('first_name', cleanCompFirst)
+          .ilike('last_name', cleanCompLast)
+          .maybeSingle();
+
+        if (existComp) {
+          compGuestId = existComp.id;
+        } else {
+          const { data: newComp } = await supabase
+            .from('guests')
+            .insert({ first_name: cleanCompFirst, last_name: cleanCompLast })
+            .select('id')
+            .single();
+          if (newComp) compGuestId = newComp.id;
+        }
+
+        if (compGuestId) {
+          const { data: existCompReg } = await supabase
+            .from('registrations')
+            .select('qr_token')
+            .eq('event_id', event.id)
+            .eq('guest_id', compGuestId)
+            .eq('status', 'registered')
+            .maybeSingle();
+
+          if (existCompReg) {
+            companionToken = existCompReg.qr_token;
+          } else {
+            const compToken = generateQrToken();
+            const { data: newCompReg } = await supabase
+              .from('registrations')
+              .insert({
+                event_id: event.id,
+                promoter_id: promoter.id,
+                guest_id: compGuestId,
+                qr_token: compToken,
+                status: 'registered',
+              })
+              .select('qr_token')
+              .single();
+
+            if (newCompReg) companionToken = newCompReg.qr_token;
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       already_registered: false,
       qr_token: newReg.qr_token,
+      companion_qr_token: companionToken,
+      companion_name: companionFullName,
     });
   } catch (err: unknown) {
     const error = err as Error;

@@ -28,6 +28,11 @@ export default function PromoterPublicPage({
   const [lastName, setLastName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Option Duo (+1)
+  const [hasCompanion, setHasCompanion] = useState(false);
+  const [companionFirstName, setCompanionFirstName] = useState('');
+  const [companionLastName, setCompanionLastName] = useState('');
+
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -63,6 +68,13 @@ export default function PromoterPublicPage({
         if (eData) {
           setCurrentEvent(eData);
         }
+
+        // 3. Enregistrer discrètement la vue du lien RP
+        fetch('/api/promoters/view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ promoter_slug: slug }),
+        }).catch(() => {});
       } catch (err: unknown) {
         const error = err as Error;
         setErrorMsg(error?.message || 'Erreur lors du chargement.');
@@ -90,6 +102,8 @@ export default function PromoterPublicPage({
           event_id: currentEvent.id,
           first_name: firstName,
           last_name: lastName,
+          companion_first_name: hasCompanion ? companionFirstName : undefined,
+          companion_last_name: hasCompanion ? companionLastName : undefined,
         }),
       });
 
@@ -99,8 +113,11 @@ export default function PromoterPublicPage({
         throw new Error(data.error || 'Erreur lors de l’inscription.');
       }
 
-      // Rediriger vers la page du QR code
-      router.push(`/qr/${data.qr_token}`);
+      // Rediriger vers la page du QR code avec accompagnateur si présent
+      const compParam = data.companion_qr_token 
+        ? `?companion=${data.companion_qr_token}&compName=${encodeURIComponent(data.companion_name || '+1')}` 
+        : '';
+      router.push(`/qr/${data.qr_token}${compParam}`);
     } catch (err: unknown) {
       const error = err as Error;
       setErrorMsg(error?.message || 'Une erreur est survenue.');
@@ -301,6 +318,55 @@ export default function PromoterPublicPage({
                       className="w-full px-3.5 py-2.5 bg-[#141722] border border-[#232738] rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
                     />
                   </div>
+                </div>
+
+                {/* Case à cocher Duo (+1) */}
+                <div className="pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-gray-300 hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={hasCompanion}
+                      onChange={(e) => setHasCompanion(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-700 text-[#e5b85c] focus:ring-[#e5b85c] bg-[#141722]"
+                    />
+                    <span className="font-semibold">Je viens accompagné(e) (+1 gratuit)</span>
+                  </label>
+
+                  {hasCompanion && (
+                    <div className="mt-3 p-3.5 bg-[#141722] border border-[#2e354a] rounded-xl space-y-3 animate-in fade-in duration-200">
+                      <p className="text-[11px] font-bold text-[#e5b85c] uppercase tracking-wider">
+                        Informations de votre accompagnateur (+1)
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                            Prénom du +1 *
+                          </label>
+                          <input
+                            type="text"
+                            required={hasCompanion}
+                            value={companionFirstName}
+                            onChange={(e) => setCompanionFirstName(e.target.value)}
+                            placeholder="Emma"
+                            className="w-full px-3 py-2 bg-[#0e1018] border border-[#232738] rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                            Nom du +1 *
+                          </label>
+                          <input
+                            type="text"
+                            required={hasCompanion}
+                            value={companionLastName}
+                            onChange={(e) => setCompanionLastName(e.target.value)}
+                            placeholder="Moreau"
+                            className="w-full px-3 py-2 bg-[#0e1018] border border-[#232738] rounded-lg text-white text-xs placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <button

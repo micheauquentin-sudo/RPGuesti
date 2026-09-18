@@ -85,6 +85,38 @@ export default function AdminGuestsPage() {
     }
   };
 
+  const toggleBlacklist = async (guestId: string, current: boolean, name: string) => {
+    if (current) {
+      if (!confirm(`Lever la blacklist et réautoriser l'accès pour ${name} ?`)) return;
+      const { error } = await supabase
+        .from('guests')
+        .update({ is_blacklisted: false, blacklist_reason: null })
+        .eq('id', guestId);
+      if (!error) {
+        setGuests((prev) =>
+          prev.map((g) => (g.id === guestId ? { ...g, is_blacklisted: false, blacklist_reason: null } : g))
+        );
+      }
+    } else {
+      const reason = prompt(`Motif du signalement / blacklist pour ${name} :`, 'Comportement inadapté à la porte');
+      if (reason === null) return;
+      const cleanReason = reason.trim() || 'Signalé par la sécurité';
+      const { error } = await supabase
+        .from('guests')
+        .update({ is_blacklisted: true, blacklist_reason: cleanReason })
+        .eq('id', guestId);
+      if (!error) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === guestId
+              ? { ...g, is_blacklisted: true, blacklist_reason: cleanReason }
+              : g
+          )
+        );
+      }
+    }
+  };
+
   const filtered = guests.filter((g) => {
     const q = searchQuery.toLowerCase();
     const fullName = `${g.first_name} ${g.last_name}`.toLowerCase();
@@ -191,7 +223,15 @@ export default function AdminGuestsPage() {
                     <td className="py-4 px-5 text-white">
                       <div className="flex items-center gap-2">
                         <span className="font-bold">{g.first_name} {g.last_name}</span>
-                        {(g.total_entries >= 2 || g.total_registrations >= 2) && (
+                        {g.is_blacklisted && (
+                          <span 
+                            title={g.blacklist_reason || 'Signalé'}
+                            className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] font-black uppercase tracking-wider shrink-0"
+                          >
+                            ⛔ BLACKLISTÉ
+                          </span>
+                        )}
+                        {(g.total_entries >= 2 || g.total_registrations >= 2) && !g.is_blacklisted && (
                           <span className="px-1.5 py-0.5 rounded bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30 text-[9px] font-black uppercase tracking-wider shrink-0">
                             ★ VIP HABITUÉ
                           </span>
@@ -230,13 +270,26 @@ export default function AdminGuestsPage() {
                     </td>
 
                     <td className="py-4 px-5 text-right">
-                      <button
-                        onClick={() => deleteGuest(g.id, `${g.first_name} ${g.last_name}`)}
-                        title="Supprimer les données de l'invité (Droit à l'oubli)"
-                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => toggleBlacklist(g.id, !!g.is_blacklisted, `${g.first_name} ${g.last_name}`)}
+                          title={g.is_blacklisted ? "Lever le signalement / Débloquer l'accès" : "Signaler / Blacklister cet invité à l'entrée"}
+                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            g.is_blacklisted
+                              ? 'bg-red-500 text-white border-red-400 hover:bg-red-600'
+                              : 'bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 border-white/10'
+                          }`}
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteGuest(g.id, `${g.first_name} ${g.last_name}`)}
+                          title="Supprimer les données de l'invité (Droit à l'oubli)"
+                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

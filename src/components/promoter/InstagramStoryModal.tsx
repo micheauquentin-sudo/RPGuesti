@@ -19,6 +19,7 @@ import { getPromoterRank } from '@/lib/promoter-ranks';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 
 export type StoryTheme = 'gold' | 'neon' | 'dark';
+export type StoryFormat = '9:16' | '1:1';
 
 export interface StoryPromoter {
   id: string;
@@ -96,6 +97,7 @@ export default function InstagramStoryModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [theme, setTheme] = useState<StoryTheme>('gold');
+  const [format, setFormat] = useState<StoryFormat>('9:16');
   const [hookText, setHookText] = useState<string>(PRESET_HOOKS[0]);
   const [generating, setGenerating] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -105,9 +107,14 @@ export default function InstagramStoryModal({
   const promoterRankInfo = getPromoterRank(entriesCount);
   const publicUrl = typeof window !== 'undefined' ? `${window.location.origin}/rp/${promoter.slug}` : '';
 
-  // Rendu Canvas 1080x1920 (Format 9:16)
+  // Rendu Canvas 1080x1920 (Format 9:16) ou 1080x1080 (Format 1:1 Carré)
   const renderStoryCanvas = useCallback(async (): Promise<string> => {
     const canvas = canvasRef.current || document.createElement('canvas');
+
+    if (format === '1:1') {
+      return await renderSquareCanvas(canvas, theme, hookText, promoter, upcomingEvent, promoterRankInfo);
+    }
+
     canvas.width = 1080;
     canvas.height = 1920;
     const ctx = canvas.getContext('2d');
@@ -481,7 +488,7 @@ export default function InstagramStoryModal({
     ctx.fillText('ASTRA ORLÉANS • INVITATIONS OFFICIELLES NUMÉRISÉES', 540, 1876);
 
     return canvas.toDataURL('image/png');
-  }, [theme, hookText, promoter, upcomingEvent, entriesCount, promoterRankInfo]);
+  }, [theme, format, hookText, promoter, upcomingEvent, entriesCount, promoterRankInfo]);
 
   // Met à jour la prévisualisation quand les options changent
   useEffect(() => {
@@ -515,7 +522,8 @@ export default function InstagramStoryModal({
       const dataUrl = await renderStoryCanvas();
       const link = document.createElement('a');
       const safePromoter = `${promoter.first_name}-${promoter.last_name}`.replace(/[^a-zA-Z0-9]/g, '_');
-      link.download = `STORY-ASTRA-${safePromoter}-${theme.toUpperCase()}.png`;
+      const prefix = format === '1:1' ? 'BANNIERE-BIO-ASTRA' : 'STORY-ASTRA';
+      link.download = `${prefix}-${safePromoter}-${theme.toUpperCase()}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -580,10 +588,10 @@ export default function InstagramStoryModal({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                Studio Story Instagram HD (9:16)
+                Studio Visuels ASTRA (Story &amp; Bio)
               </h2>
               <p className="text-[11px] text-gray-400">
-                Générez votre affiche officielle prête à poster en Story en 1 clic
+                Générez votre affiche officielle en Story (9:16) ou votre bannière carrée (1:1) en 1 clic
               </p>
             </div>
           </div>
@@ -596,17 +604,17 @@ export default function InstagramStoryModal({
           </button>
         </div>
 
-        {/* Modal Body: 2 colonnes (Prévisualisation 9:16 à gauche, Contrôles à droite) */}
+        {/* Modal Body: 2 colonnes (Prévisualisation à gauche, Contrôles à droite) */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
           
-          {/* Colonne Gauche : Aperçu Story 9:16 */}
+          {/* Colonne Gauche : Aperçu Dynamique (9:16 ou 1:1) */}
           <div className="md:col-span-5 flex flex-col items-center justify-center">
-            <div className="relative w-full max-w-[260px] sm:max-w-[290px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl border-2 border-[#e5b85c]/40 bg-black flex items-center justify-center group">
+            <div className={`relative w-full ${format === '1:1' ? 'max-w-[280px] sm:max-w-[310px] aspect-square' : 'max-w-[260px] sm:max-w-[290px] aspect-[9/16]'} rounded-2xl overflow-hidden shadow-2xl border-2 border-[#e5b85c]/40 bg-black flex items-center justify-center group`}>
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={previewUrl}
-                  alt="Aperçu Story"
+                  alt="Aperçu Visuel"
                   className="w-full h-full object-cover select-none"
                 />
               ) : (
@@ -624,18 +632,54 @@ export default function InstagramStoryModal({
             </div>
 
             <p className="text-[11px] text-gray-500 mt-2.5 text-center font-medium">
-              Format exact 1080 × 1920 px (9:16) • Haute Définition
+              {format === '1:1'
+                ? 'Format Carré 1080 × 1080 px (1:1) • Bio, Linktree & Post Feed'
+                : 'Format Story 1080 × 1920 px (9:16) • Haute Définition'}
             </p>
           </div>
 
           {/* Colonne Droite : Options & Actions */}
           <div className="md:col-span-7 space-y-5">
             
-            {/* 1. Choix du Thème Visuel */}
+            {/* 1. Choix du Format (9:16 vs 1:1) */}
+            <div>
+              <label className="text-xs uppercase font-extrabold tracking-wider text-[#e5b85c] mb-2 block flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                1. Format du Visuel
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setFormat('9:16')}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    format === '9:16'
+                      ? 'border-[#e5b85c] bg-[#e5b85c]/15 text-[#e5b85c] font-bold shadow-[0_0_15px_rgba(229,184,92,0.2)]'
+                      : 'border-[#232738] bg-[#121522] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="text-xs block font-bold">Story Instagram (9:16)</span>
+                  <span className="text-[10px] text-gray-400">Story, Snap, TikTok</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormat('1:1')}
+                  className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
+                    format === '1:1'
+                      ? 'border-[#e5b85c] bg-[#e5b85c]/15 text-[#e5b85c] font-bold shadow-[0_0_15px_rgba(229,184,92,0.2)]'
+                      : 'border-[#232738] bg-[#121522] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="text-xs block font-bold">Bannière Carrée (1:1)</span>
+                  <span className="text-[10px] text-gray-400">Bio, Linktree &amp; Feed</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Choix du Thème Visuel */}
             <div>
               <label className="text-xs uppercase font-extrabold tracking-wider text-[#e5b85c] mb-2 block flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
-                1. Style Visuel de la Story
+                2. Style Visuel
               </label>
               <div className="grid grid-cols-3 gap-2.5">
                 <button
@@ -801,6 +845,236 @@ export default function InstagramStoryModal({
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
+}
+
+// Rendu Canvas 1080x1080 (Format Carré 1:1 pour Bio, Linktree et Feed)
+async function renderSquareCanvas(
+  canvas: HTMLCanvasElement,
+  theme: StoryTheme,
+  hookText: string,
+  promoter: StoryPromoter,
+  upcomingEvent: StoryEvent | null,
+  promoterRankInfo: ReturnType<typeof getPromoterRank>
+): Promise<string> {
+  canvas.width = 1080;
+  canvas.height = 1080;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Impossible d’initialiser le moteur 2D.');
+
+  // 1. FOND DE BASE
+  if (theme === 'gold') {
+    ctx.fillStyle = '#07080c';
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    const radial = ctx.createRadialGradient(540, 500, 80, 540, 500, 600);
+    radial.addColorStop(0, 'rgba(229, 184, 92, 0.18)');
+    radial.addColorStop(0.7, 'rgba(18, 20, 32, 0.95)');
+    radial.addColorStop(1, '#07080c');
+    ctx.fillStyle = radial;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    ctx.strokeStyle = '#e5b85c';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(32, 32, 1016, 1016);
+
+    ctx.strokeStyle = 'rgba(229, 184, 92, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(44, 44, 992, 992);
+  } else if (theme === 'neon') {
+    ctx.fillStyle = '#06040d';
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    const cyanGlow = ctx.createRadialGradient(300, 300, 40, 300, 300, 500);
+    cyanGlow.addColorStop(0, 'rgba(6, 182, 212, 0.28)');
+    cyanGlow.addColorStop(1, 'rgba(6, 4, 13, 0)');
+    ctx.fillStyle = cyanGlow;
+    ctx.fillRect(0, 0, 1080, 1080);
+
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 14;
+    ctx.strokeRect(32, 32, 1016, 1016);
+    ctx.shadowBlur = 0;
+
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(44, 44, 992, 992);
+  } else {
+    ctx.fillStyle = '#050507';
+    ctx.fillRect(0, 0, 1080, 1080);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(36, 36, 1008, 1008);
+  }
+
+  // 2. LOGO ASTRA 3D
+  try {
+    const logoImg = await loadImage('/astra-logo.png');
+    ctx.drawImage(logoImg, 465, 50, 150, 130);
+  } catch {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = theme === 'neon' ? '#06b6d4' : '#e5b85c';
+    ctx.font = '900 42px system-ui, sans-serif';
+    ctx.fillText('ASTRA', 540, 125);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = theme === 'neon' ? '#06b6d4' : '#e5b85c';
+  ctx.font = '900 15px system-ui, sans-serif';
+  ctx.fillText('ORLÉANS • CLUB & NIGHTLIFE', 540, 195);
+
+  // 3. BADGE RP EN LIGNE
+  const rpY = 220;
+  ctx.fillStyle = theme === 'neon' ? 'rgba(20, 15, 36, 0.92)' : 'rgba(18, 21, 34, 0.95)';
+  drawRoundedRect(ctx, 80, rpY, 920, 95, 20);
+  ctx.fill();
+
+  ctx.strokeStyle = theme === 'neon' ? '#ec4899' : '#e5b85c';
+  ctx.lineWidth = 2;
+  drawRoundedRect(ctx, 80, rpY, 920, 95, 20);
+  ctx.stroke();
+
+  const avatarX = 135;
+  const avatarY = rpY + 47;
+  const avatarRadius = 32;
+  if (promoter.avatar_url) {
+    try {
+      const avImg = await loadImage(promoter.avatar_url);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(avImg, avatarX - avatarRadius, avatarY - avatarRadius, avatarRadius * 2, avatarRadius * 2);
+      ctx.restore();
+
+      ctx.strokeStyle = theme === 'neon' ? '#06b6d4' : '#e5b85c';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(avatarX, avatarY, avatarRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    } catch {
+      drawFallbackAvatar(ctx, promoter, avatarX, avatarY, avatarRadius, theme);
+    }
+  } else {
+    drawFallbackAvatar(ctx, promoter, avatarX, avatarY, avatarRadius, theme);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillText('PASS INVITÉ OFFICIEL', 190, rpY + 38);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 24px system-ui, sans-serif';
+  ctx.fillText(`${promoter.first_name} ${promoter.last_name}`, 190, rpY + 68);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = promoterRankInfo.currentRank.color;
+  ctx.font = '900 16px system-ui, sans-serif';
+  ctx.fillText(promoterRankInfo.currentRank.badge.toUpperCase(), 960, rpY + 46);
+
+  if (promoter.instagram_handle) {
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.fillText(`@${promoter.instagram_handle.replace(/^@/, '')}`, 960, rpY + 70);
+  }
+
+  // 4. BANDEAU HÉROS "ENTRÉE 100% GRATUITE"
+  const heroY = 335;
+  const grad = ctx.createLinearGradient(80, heroY, 1000, heroY);
+  if (theme === 'neon') {
+    grad.addColorStop(0, '#06b6d4');
+    grad.addColorStop(0.5, '#ec4899');
+    grad.addColorStop(1, '#06b6d4');
+  } else {
+    grad.addColorStop(0, '#059669');
+    grad.addColorStop(0.5, '#10b981');
+    grad.addColorStop(1, '#059669');
+  }
+  ctx.fillStyle = grad;
+  drawRoundedRect(ctx, 80, heroY, 920, 80, 20);
+  ctx.fill();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#000000';
+  ctx.font = '900 30px system-ui, sans-serif';
+  ctx.fillText('★ ENTRÉE 100% GRATUITE AVEC MON PASS ★', 540, heroY + 52);
+
+  // 5. SOIRÉE OU ACCROCHE
+  const eventY = 435;
+  if (upcomingEvent) {
+    ctx.fillStyle = '#10131e';
+    drawRoundedRect(ctx, 80, eventY, 920, 80, 18);
+    ctx.fill();
+    ctx.strokeStyle = '#232738';
+    ctx.lineWidth = 1.5;
+    drawRoundedRect(ctx, 80, eventY, 920, 80, 18);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 24px system-ui, sans-serif';
+    ctx.fillText(upcomingEvent.name, 540, eventY + 36);
+
+    ctx.fillStyle = theme === 'neon' ? '#06b6d4' : '#e5b85c';
+    ctx.font = 'bold 16px system-ui, sans-serif';
+    ctx.fillText(`📅 ${formatFrenchDate(upcomingEvent.event_date).toUpperCase()} • ASTRA CLUB`, 540, eventY + 64);
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 24px system-ui, sans-serif';
+    ctx.fillText(hookText, 540, eventY + 48);
+  }
+
+  // 6. ZONE "LIEN EN BIO / LINKTREE"
+  const bioBoxY = 535;
+  const bioBoxH = 345;
+
+  ctx.fillStyle = theme === 'neon' ? 'rgba(15, 10, 30, 0.94)' : 'rgba(18, 20, 30, 0.95)';
+  drawRoundedRect(ctx, 80, bioBoxY, 920, bioBoxH, 24);
+  ctx.fill();
+
+  ctx.save();
+  ctx.setLineDash([12, 8]);
+  ctx.strokeStyle = theme === 'neon' ? '#ec4899' : '#e5b85c';
+  ctx.lineWidth = 3.5;
+  drawRoundedRect(ctx, 80, bioBoxY, 920, bioBoxH, 24);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = theme === 'neon' ? '#ec4899' : '#e5b85c';
+  ctx.font = '900 26px system-ui, sans-serif';
+  ctx.fillText('👇  RÉCUPÈRE TON PASS ICI  👇', 540, bioBoxY + 54);
+
+  // Bouton Linktree / Bio
+  ctx.fillStyle = '#ffffff';
+  drawRoundedRect(ctx, 160, bioBoxY + 84, 760, 95, 24);
+  ctx.fill();
+
+  ctx.fillStyle = '#000000';
+  ctx.font = '900 28px system-ui, sans-serif';
+  ctx.fillText('🔗 CLIQUE SUR LE LIEN EN BIO 🎟️', 540, bioBoxY + 144);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  ctx.fillText('QR Code nominatif généré en 5 secondes', 540, bioBoxY + 225);
+
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText(`astra-club.fr/rp/${promoter.slug}`, 540, bioBoxY + 265);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 16px system-ui, sans-serif';
+  ctx.fillText("À l'arrivée : Demande UNE ENTRÉE ASTRA puis fais scanner ton pass", 540, bioBoxY + 305);
+
+  // 7. Footer
+  ctx.fillStyle = '#64748b';
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  ctx.fillText('ASTRA ORLÉANS • INVITATIONS OFFICIELLES NUMÉRISÉES', 540, 1035);
+
+  return canvas.toDataURL('image/png');
 }
 
 // Fallback pour afficher un avatar élégant si pas d'image

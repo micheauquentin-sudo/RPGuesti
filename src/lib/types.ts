@@ -24,6 +24,7 @@ export interface Promoter {
   slug: string;
   avatar_url: string | null;
   is_active: boolean;
+  views_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -50,6 +51,8 @@ export interface Guest {
   last_name: string;
   phone: string | null;
   instagram_handle: string | null;
+  is_blacklisted?: boolean;
+  blacklist_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +109,7 @@ export type CheckInStatusCode =
   | 'VALID'
   | 'ALREADY_USED'
   | 'CANCELLED'
+  | 'BLACKLISTED'
   | 'EVENT_NOT_ACTIVE'
   | 'EXPIRED'
   | 'NOT_FOUND'

@@ -50,6 +50,9 @@ export default async function AdminDashboardPage() {
     { data: yearlyEntries },
     { data: chartEntriesList },
     { data: regGuestList },
+    { data: pastEvents },
+    { data: comparativeEntries },
+    { data: comparativeRegs },
   ] = await Promise.all([
     // 1. Entrées aujourd'hui
     supabase
@@ -102,7 +105,70 @@ export default async function AdminDashboardPage() {
       .from('registrations')
       .select('guest_id')
       .limit(1000),
+    // 9. Dernières soirées pour le comparateur
+    supabase
+      .from('events')
+      .select('id, name, event_date, status')
+      .order('event_date', { ascending: false })
+      .limit(6),
+    // 10. Toutes les entrées par événement pour analyse comparative
+    supabase
+      .from('entries')
+      .select(`
+        event_id,
+        promoter_id,
+        promoter:promoters(first_name, last_name)
+      `)
+      .in('status', ['valid', 'VALID']),
+    // 11. Toutes les inscriptions par événement pour analyse comparative
+    supabase
+      .from('registrations')
+      .select('event_id')
+      .eq('status', 'registered'),
   ]);
+
+  // Jauge de Capacité en Direct du Club ASTRA
+  const MAX_CLUB_CAPACITY = 600; // Capacité maximale ERP autorisée
+  const entriesCountToday = entriesToday ?? 0;
+  const capacityFillPercent = Math.min(100, Math.round((entriesCountToday / MAX_CLUB_CAPACITY) * 100));
+  const remainingCapacity = Math.max(0, MAX_CLUB_CAPACITY - entriesCountToday);
+
+  // Traitement du Comparateur de Soirées
+  const comparativeEntriesList = comparativeEntries || [];
+  const comparativeRegsList = comparativeRegs || [];
+
+  const pastEventsComparison = (pastEvents || []).map((ev) => {
+    const eventEntries = comparativeEntriesList.filter((e) => e.event_id === ev.id);
+    const eventRegs = comparativeRegsList.filter((r) => r.event_id === ev.id);
+    const entriesCount = eventEntries.length;
+    const regsCount = eventRegs.length;
+    const attendanceRate = regsCount > 0 ? Math.round((entriesCount / regsCount) * 100) : 0;
+
+    // Meilleur RP de cette soirée
+    const promoterScoreMap: Record<string, { name: string; count: number }> = {};
+    eventEntries.forEach((entry) => {
+      if (!entry.promoter_id) return;
+      const p = Array.isArray(entry.promoter) ? entry.promoter[0] : entry.promoter;
+      const name = p ? `${p.first_name} ${p.last_name}` : 'RP';
+      if (!promoterScoreMap[entry.promoter_id]) {
+        promoterScoreMap[entry.promoter_id] = { name, count: 0 };
+      }
+      promoterScoreMap[entry.promoter_id].count += 1;
+    });
+
+    const topEventPromoter = Object.values(promoterScoreMap).sort((a, b) => b.count - a.count)[0];
+
+    return {
+      id: ev.id,
+      name: ev.name,
+      event_date: ev.event_date,
+      status: ev.status,
+      entriesCount,
+      regsCount,
+      attendanceRate,
+      topPromoterName: topEventPromoter ? `${topEventPromoter.name} (${topEventPromoter.count} scans)` : '—',
+    };
+  });
 
   // Calcul Courbe d'Affluence Heure par Heure (Nightclub Peak Curve)
   const hourlySlots = [
@@ -218,22 +284,54 @@ export default async function AdminDashboardPage() {
 
       {/* 4 Cartes Statistiques Clés */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Entrées ce soir */}
-        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Entrées Ce Soir
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <CheckSquare className="w-4 h-4" />
+        {/* Entrées ce soir avec JAUGE DE CAPACITÉ EN DIRECT */}
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                <span>Entrées Ce Soir</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <CheckSquare className="w-4 h-4" />
+              </div>
             </div>
+            <div className="flex items-baseline gap-2">
+              <div className="text-3xl font-black text-white">
+                {entriesCountToday}
+              </div>
+              <span className="text-xs text-gray-500 font-bold">
+                / {MAX_CLUB_CAPACITY} max
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
+              <span className="text-emerald-400 font-semibold">Scannés en direct</span> à la porte
+            </p>
           </div>
-          <div className="text-3xl font-black text-white">
-            {entriesToday ?? 0}
+
+          <div className="mt-3 pt-3 border-t border-[#1e2232]">
+            <div className="flex items-center justify-between text-[10px] font-extrabold mb-1">
+              <span className={capacityFillPercent >= 85 ? 'text-rose-400' : capacityFillPercent >= 60 ? 'text-amber-400' : 'text-emerald-400'}>
+                {capacityFillPercent >= 85 ? '⚡ RUSH / SEUIL CRITIQUE' : capacityFillPercent >= 60 ? '🔥 FORTE AFFLUENCE' : '🟢 FLUIDE & CONFORT'}
+              </span>
+              <span className="text-gray-400">{capacityFillPercent}%</span>
+            </div>
+            <div className="w-full bg-[#181b28] h-2 rounded-full overflow-hidden">
+              <div
+                style={{ width: `${capacityFillPercent}%` }}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  capacityFillPercent >= 85
+                    ? 'bg-gradient-to-r from-amber-500 to-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]'
+                    : capacityFillPercent >= 60
+                    ? 'bg-gradient-to-r from-emerald-500 to-amber-400'
+                    : 'bg-gradient-to-r from-emerald-600 to-emerald-400'
+                }`}
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1">
+              {remainingCapacity > 0 ? `${remainingCapacity} places encore disponibles` : 'Capacité maximale atteinte'}
+            </p>
           </div>
-          <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-            <span className="text-emerald-400 font-semibold">QR scannés & validés</span> à la porte
-          </p>
         </div>
 
         {/* Inscriptions ce soir */}
@@ -580,6 +678,116 @@ export default async function AdminDashboardPage() {
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
+        </div>
+      </div>
+
+      {/* COMPARATEUR DE SOIRÉES (ANALYSE COMPARATIVE MULTI-ÉVÉNEMENTS) */}
+      <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/30 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-[#e5b85c]" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <span>Comparateur de Soirées</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30">
+                  Performance Club
+                </span>
+              </h2>
+              <p className="text-xs text-gray-400">
+                Analyse comparative des dernières soirées : inscriptions, entrées effectives, taux de conversion et meilleur RP
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/admin/events"
+            className="text-xs font-semibold text-[#e5b85c] hover:underline flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>Toutes les soirées</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto pt-2">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-b border-[#232738] text-gray-400 uppercase text-[10px] tracking-wider">
+                <th className="pb-3 font-semibold">Soirée</th>
+                <th className="pb-3 font-semibold">Date</th>
+                <th className="pb-3 font-semibold text-center">Inscriptions</th>
+                <th className="pb-3 font-semibold text-center">Entrées Scannées</th>
+                <th className="pb-3 font-semibold text-center">Taux Présence</th>
+                <th className="pb-3 font-semibold">Top RP de la Soirée</th>
+                <th className="pb-3 font-semibold text-right">Verdict</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1b1f2e]">
+              {pastEventsComparison.length > 0 ? (
+                pastEventsComparison.map((ev) => {
+                  const isSuccess = ev.attendanceRate >= 60 || ev.entriesCount >= 20;
+                  const isModerate = ev.attendanceRate >= 30;
+
+                  return (
+                    <tr key={ev.id} className="hover:bg-[#141722]/60 transition-colors">
+                      <td className="py-3.5 font-black text-white">
+                        <Link href={`/admin/events/${ev.id}`} className="hover:text-[#e5b85c] transition-colors">
+                          {ev.name}
+                        </Link>
+                      </td>
+                      <td className="py-3.5 text-gray-400 capitalize whitespace-nowrap">
+                        {formatFrenchDate(ev.event_date)}
+                      </td>
+                      <td className="py-3.5 text-center font-bold text-blue-400">
+                        {ev.regsCount}
+                      </td>
+                      <td className="py-3.5 text-center font-black text-[#e5b85c]">
+                        {ev.entriesCount}
+                      </td>
+                      <td className="py-3.5 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded-full font-black text-[11px] ${
+                          ev.attendanceRate >= 60
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : ev.attendanceRate >= 35
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-gray-800 text-gray-400'
+                        }`}>
+                          {ev.attendanceRate}%
+                        </span>
+                      </td>
+                      <td className="py-3.5 font-bold text-gray-300">
+                        {ev.topPromoterName}
+                      </td>
+                      <td className="py-3.5 text-right whitespace-nowrap">
+                        {ev.entriesCount === 0 ? (
+                          <span className="text-[10px] text-gray-500 font-medium">À venir / Pas de scan</span>
+                        ) : isSuccess ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-black uppercase">
+                            🔥 Plein Carton
+                          </span>
+                        ) : isModerate ? (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-black uppercase">
+                            ⭐ Belle Soirée
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-black uppercase">
+                            📈 À optimiser
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-gray-500">
+                    Aucune soirée enregistrée pour le comparateur.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

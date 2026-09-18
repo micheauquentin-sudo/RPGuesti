@@ -75,12 +75,27 @@ export async function POST(request: Request) {
 
     const scannedBy = user.id;
 
-    // 4. Vérifier si l'événement associé à ce pass a déjà expiré (soirée passée)
+    // 4. Vérifier si l'invité est blacklisté ou si l'événement a expiré
     const { data: regCheck } = await supabaseAdmin
       .from('registrations')
-      .select('event:events(name, event_date, end_time, status)')
+      .select('guest:guests(first_name, last_name, is_blacklisted, blacklist_reason), event:events(name, event_date, end_time, status)')
       .eq('qr_token', qrToken)
       .maybeSingle();
+
+    if (regCheck?.guest) {
+      const g = Array.isArray(regCheck.guest) 
+        ? regCheck.guest[0] 
+        : (regCheck.guest as unknown as { first_name: string; last_name: string; is_blacklisted?: boolean; blacklist_reason?: string });
+      
+      if (g?.is_blacklisted) {
+        return NextResponse.json({
+          success: false,
+          status: 'BLACKLISTED',
+          message: g.blacklist_reason ? `INDIVIDU SIGNALÉ : ${g.blacklist_reason}` : 'INDIVIDU SIGNALÉ — ACCÈS STRICTEMENT REFUSÉ',
+          guest_name: `${g.first_name} ${g.last_name}`,
+        });
+      }
+    }
 
     if (regCheck?.event) {
       const ev = Array.isArray(regCheck.event) ? regCheck.event[0] : (regCheck.event as unknown as { name: string; event_date: string; end_time: string; status: string });

@@ -75,7 +75,7 @@ export async function GET() {
     // Récupérer le classement global (basé STRICTEMENT sur les entrées validées)
     const { data: allPromoters } = await supabaseAdmin
       .from('promoters')
-      .select('id, first_name, last_name, instagram_handle, slug, avatar_url, is_active')
+      .select('id, first_name, last_name, instagram_handle, slug, avatar_url, is_active, views_count')
       .eq('is_active', true);
 
     const { data: allEntries } = await supabaseAdmin
@@ -111,6 +111,7 @@ export async function GET() {
           instagram_handle: p.instagram_handle,
           slug: p.slug,
           avatar_url: p.avatar_url,
+          views_count: (p as unknown as { views_count?: number }).views_count || 0,
           entries_count: entries,
           registrations_count: regs,
           attendance_rate: rate,
