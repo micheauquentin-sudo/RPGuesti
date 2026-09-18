@@ -21,3 +21,8 @@ ALTER TABLE public.promoters
 ALTER TABLE public.registrations 
   ADD COLUMN IF NOT EXISTS is_duo BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS companion_name TEXT;
+
+-- 4. Champs optionnels profil RP (téléphone & commission)
+ALTER TABLE public.promoters 
+  ADD COLUMN IF NOT EXISTS phone TEXT,
+  ADD COLUMN IF NOT EXISTS commission_per_entry NUMERIC DEFAULT 0;

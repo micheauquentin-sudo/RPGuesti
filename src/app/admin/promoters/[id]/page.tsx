@@ -75,7 +75,7 @@ export default function PromoterDetailPage({
       // 1. Récupérer le promoteur
       const { data: pData, error: pError } = await supabase
         .from('promoters')
-        .select('id, profile_id, first_name, last_name, slug, email, phone, instagram_handle, avatar_url, commission_per_entry, is_active, created_at, updated_at')
+        .select('*')
         .eq('id', id)
         .single();
 

@@ -48,7 +48,7 @@ export default async function AdminDashboardPage() {
   const [
     { count: entriesToday },
     { count: registrationsToday },
-    { count: activePromoters },
+    { count: activePromoters, data: activePromotersList },
     { count: entriesThisYear },
     { data: nextEvent },
     { data: yearlyEntries },
@@ -72,7 +72,7 @@ export default async function AdminDashboardPage() {
     // 3. RP Actifs
     supabase
       .from('promoters')
-      .select('id', { count: 'exact', head: true })
+      .select('id, first_name, last_name, slug', { count: 'exact' })
       .eq('is_active', true),
     // 4. Entrées cette année (Total Concours)
     supabase
@@ -284,6 +284,17 @@ export default async function AdminDashboardPage() {
       };
     }
     promoterCountMap[pId].count += 1;
+  });
+
+  // Inclure également tous les RP actifs enregistrés même avec 0 scan
+  (activePromotersList || []).forEach((p: { id: string; first_name: string; last_name: string; slug: string }) => {
+    if (!promoterCountMap[p.id]) {
+      promoterCountMap[p.id] = {
+        name: `${p.first_name} ${p.last_name}`,
+        slug: p.slug,
+        count: 0,
+      };
+    }
   });
 
   const topPromoters = Object.entries(promoterCountMap)

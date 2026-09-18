@@ -41,26 +41,50 @@ export async function GET() {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    // Si non associé directement par profile_id, tenter par email ou associer le premier RP actif disponible
+    // Si non associé directement par profile_id, tenter par email exact ou correspondance
     if (!promoter && user.email) {
-      const emailPrefix = user.email.split('@')[0].toLowerCase();
-      const { data: candidate } = await supabaseAdmin
+      const emailClean = user.email.trim().toLowerCase();
+      
+      // 1. Chercher par email exact
+      let { data: candidate } = await supabaseAdmin
         .from('promoters')
         .select('*')
-        .ilike('slug', `%${emailPrefix}%`)
-        .is('profile_id', null)
+        .eq('email', emailClean)
         .maybeSingle();
+
+      // 2. Chercher par correspondance prénom / nom du profile
+      if (!candidate && profile) {
+        const { data: nameMatch } = await supabaseAdmin
+          .from('promoters')
+          .select('*')
+          .ilike('first_name', profile.first_name || '')
+          .ilike('last_name', profile.last_name || '')
+          .maybeSingle();
+        candidate = nameMatch;
+      }
+
+      // 3. Chercher par slug avec fragments de l'email
+      if (!candidate) {
+        const emailPrefix = emailClean.split('@')[0];
+        const { data: slugMatch } = await supabaseAdmin
+          .from('promoters')
+          .select('*')
+          .ilike('slug', `%${emailPrefix}%`)
+          .is('profile_id', null)
+          .maybeSingle();
+        candidate = slugMatch;
+      }
 
       if (candidate) {
         await supabaseAdmin
           .from('promoters')
-          .update({ profile_id: user.id })
+          .update({ profile_id: user.id, email: emailClean })
           .eq('id', candidate.id);
-        promoter = { ...candidate, profile_id: user.id };
+        promoter = { ...candidate, profile_id: user.id, email: emailClean };
       }
     }
 
-    // Si toujours aucun RP trouvé et que l'utilisateur est admin, prendre le premier RP ou en créer un profil démo
+    // Si toujours aucun RP trouvé et que l'utilisateur est admin, associer le premier RP actif
     if (!promoter && profile?.role === 'admin') {
       const { data: firstPromoter } = await supabaseAdmin
         .from('promoters')
@@ -69,7 +93,13 @@ export async function GET() {
         .limit(1)
         .maybeSingle();
 
-      promoter = firstPromoter;
+      if (firstPromoter) {
+        await supabaseAdmin
+          .from('promoters')
+          .update({ profile_id: user.id, email: user.email || firstPromoter.email })
+          .eq('id', firstPromoter.id);
+        promoter = { ...firstPromoter, profile_id: user.id };
+      }
     }
 
     // Récupérer le classement global (basé STRICTEMENT sur les entrées validées)
