@@ -134,11 +134,55 @@ export async function GET() {
       .limit(1)
       .maybeSingle();
 
+    // Liste des invités du RP pour la soirée active/prochaine
+    let eventGuests: Array<{
+      id: string;
+      guest_name: string;
+      first_name: string;
+      last_name: string;
+      phone: string | null;
+      registered_at: string;
+      is_scanned: boolean;
+      scanned_at: string | null;
+    }> = [];
+
+    if (promoter?.id && upcomingEvent?.id) {
+      const { data: regs } = await supabaseAdmin
+        .from('registrations')
+        .select(`
+          id,
+          registered_at,
+          guest:guests(id, first_name, last_name, phone),
+          entry:entries(id, scanned_at, status)
+        `)
+        .eq('promoter_id', promoter.id)
+        .eq('event_id', upcomingEvent.id)
+        .order('registered_at', { ascending: false });
+
+      if (regs) {
+        eventGuests = regs.map((r) => {
+          const g = Array.isArray(r.guest) ? r.guest[0] : r.guest;
+          const e = Array.isArray(r.entry) ? r.entry[0] : r.entry;
+          return {
+            id: r.id,
+            guest_name: g ? `${g.first_name} ${g.last_name}` : 'Invité inconnu',
+            first_name: g?.first_name || '',
+            last_name: g?.last_name || '',
+            phone: g?.phone || null,
+            registered_at: r.registered_at,
+            is_scanned: Boolean(e && (e.status === 'valid' || e.status === 'VALID')),
+            scanned_at: e?.scanned_at || null,
+          };
+        });
+      }
+    }
+
     return NextResponse.json({
       promoter,
       profile,
       leaderboard,
       upcomingEvent,
+      eventGuests,
     });
   } catch (err: unknown) {
     const error = err as Error;

@@ -595,6 +595,13 @@ export default function MobileScannerPage() {
                   {scanResult.guest_name}
                 </h1>
 
+                {scanResult.guest_badge?.type === 'DUO_AMBASSADOR' && (
+                  <div className="mb-3 px-4 py-2 bg-[#e5b85c] text-black font-black text-sm uppercase tracking-wider rounded-2xl shadow-[0_0_30px_rgba(229,184,92,0.8)] animate-bounce inline-flex items-center gap-2">
+                    <span>👥</span>
+                    <span>PASS DUO : 2 PERSONNES AUTORISÉES</span>
+                  </div>
+                )}
+
                 {scanResult.guest_badge && (
                   <div className="mb-4 px-4 py-2 rounded-2xl bg-black/60 border border-emerald-400/40 inline-flex flex-col items-center shadow-lg animate-in zoom-in-90 duration-200">
                     <span className="text-xs font-black tracking-wider text-[#e5b85c] uppercase flex items-center gap-1.5">

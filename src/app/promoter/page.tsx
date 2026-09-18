@@ -26,7 +26,8 @@ import {
   Zap,
   Bell,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Search
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
@@ -147,11 +148,25 @@ interface UpcomingEvent {
   cover_image_url: string | null;
 }
 
+export interface EventGuestItem {
+  id: string;
+  guest_name: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  registered_at: string;
+  is_scanned: boolean;
+  scanned_at: string | null;
+}
+
 export default function PromoterDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [promoter, setPromoter] = useState<PromoterData | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
   const [upcomingEvent, setUpcomingEvent] = useState<UpcomingEvent | null>(null);
+  const [eventGuests, setEventGuests] = useState<EventGuestItem[]>([]);
+  const [guestFilter, setGuestFilter] = useState<'all' | 'scanned' | 'pending'>('all');
+  const [guestSearch, setGuestSearch] = useState('');
 
   // Modal Story Instagram HD
   const [storyModalOpen, setStoryModalOpen] = useState(false);
@@ -224,6 +239,7 @@ export default function PromoterDashboardPage() {
       setPromoter(data.promoter);
       setLeaderboard(data.leaderboard || []);
       setUpcomingEvent(data.upcomingEvent);
+      setEventGuests(data.eventGuests || []);
 
       if (data.promoter) {
         setEditFirstName(data.promoter.first_name);
@@ -300,6 +316,7 @@ export default function PromoterDashboardPage() {
           });
 
           setLiveEntriesDelta((prev) => prev + 1);
+          loadData();
 
           setTimeout(() => {
             setRealtimeToast(null);
@@ -327,6 +344,16 @@ export default function PromoterDashboardPage() {
   const clickToEntryRate = promoterViews > 0
     ? Math.min(100, Math.round((personalEntries / promoterViews) * 100))
     : (personalEntries > 0 ? 100 : 0);
+
+  const filteredGuests = eventGuests.filter((g) => {
+    if (guestFilter === 'scanned' && !g.is_scanned) return false;
+    if (guestFilter === 'pending' && g.is_scanned) return false;
+    if (guestSearch) {
+      const q = guestSearch.toLowerCase();
+      return g.guest_name.toLowerCase().includes(q) || (g.phone && g.phone.includes(q));
+    }
+    return true;
+  });
 
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const promoterPublicUrl = promoter ? `${appOrigin}/rp/${promoter.slug}` : '';
@@ -944,6 +971,172 @@ export default function PromoterDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 👥 SUIVI DES INVITÉS EN DIRECT (QUI EST DÉJÀ ENTRÉ ?) */}
+      {upcomingEvent && (
+        <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-7 shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/30 flex items-center justify-center">
+                <Users className="w-5 h-5 text-[#e5b85c]" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Mes Invités de la Soirée</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Live Entrées
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-400">
+                  Suivez en temps réel qui est déjà entré à l&apos;ASTRA et relancez vos retardataires
+                </p>
+              </div>
+            </div>
+
+            {/* Compteur Entrées / Inscrits */}
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 bg-[#141724] rounded-xl border border-[#232738] text-xs">
+                <span className="text-gray-400">Entrées validées : </span>
+                <strong className="text-emerald-400 font-bold">
+                  {eventGuests.filter((g) => g.is_scanned).length}
+                </strong>
+                <span className="text-gray-500"> / {eventGuests.length}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filtres & Recherche */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+            <div className="flex items-center gap-1.5 p-1 bg-[#121522] rounded-xl border border-[#232738] text-xs">
+              <button
+                type="button"
+                onClick={() => setGuestFilter('all')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  guestFilter === 'all'
+                    ? 'bg-[#e5b85c] text-black shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                Tous ({eventGuests.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestFilter('scanned')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                  guestFilter === 'scanned'
+                    ? 'bg-emerald-500 text-black shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                <span>Entrés ({eventGuests.filter((g) => g.is_scanned).length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuestFilter('pending')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                  guestFilter === 'pending'
+                    ? 'bg-gray-700 text-white shadow'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+                <span>En attente ({eventGuests.filter((g) => !g.is_scanned).length})</span>
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={guestSearch}
+                onChange={(e) => setGuestSearch(e.target.value)}
+                placeholder="Rechercher un invité..."
+                className="w-full sm:w-56 pl-8 pr-3 py-1.5 bg-[#121522] border border-[#232738] rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]"
+              />
+            </div>
+          </div>
+
+          {/* Liste des Invités */}
+          {filteredGuests.length === 0 ? (
+            <div className="p-8 text-center bg-[#121522]/50 border border-[#202538] rounded-2xl">
+              <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-gray-300">
+                {eventGuests.length === 0
+                  ? 'Aucun invité inscrit pour le moment'
+                  : 'Aucun invité ne correspond à ce filtre'}
+              </p>
+              {eventGuests.length === 0 && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Partagez votre lien pour commencer à remplir votre guestlist et marquer des points !
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto pr-1">
+              {filteredGuests.map((g) => {
+                const scanTime = g.scanned_at
+                  ? new Intl.DateTimeFormat('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZone: 'Europe/Paris',
+                    }).format(new Date(g.scanned_at))
+                  : null;
+
+                const whatsappPingText = encodeURIComponent(
+                  `Salut ${g.first_name} ! Tu viens à l'ASTRA ce soir ? Ton entrée gratuite avec mon lien RP est prête, dis-moi quand tu arrives ! 🔥`
+                );
+
+                return (
+                  <div
+                    key={g.id}
+                    className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+                      g.is_scanned
+                        ? 'bg-gradient-to-r from-emerald-950/20 to-[#121824] border-emerald-500/30'
+                        : 'bg-[#121522] border-[#22273a]'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white truncate block">
+                          {g.guest_name}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {g.is_scanned ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Entré{scanTime ? ` à ${scanTime}` : ''}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-500/10 px-2 py-0.5 rounded-md">
+                            <Clock className="w-3 h-3" />
+                            <span>En attente</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {!g.is_scanned && (
+                      <a
+                        href={`https://wa.me/?text=${whatsappPingText}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition-colors shrink-0"
+                        title="Relancer sur WhatsApp"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span className="hidden sm:inline">Relancer</span>
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

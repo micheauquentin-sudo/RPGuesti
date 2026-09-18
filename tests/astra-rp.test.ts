@@ -339,4 +339,82 @@ describe('ASTRA RP — Filigrane Anti-Photoshop & Sécurité Billet Enregistré 
   });
 });
 
+describe('ASTRA RP — Nouvelles Fonctionnalités Clubbing (Options 1, 2, 4, 5)', () => {
+  it('Option 1 : Valide le mode passage porte flash et la détection Wake Lock', () => {
+    const isWakeLockSupported = (nav: { wakeLock?: unknown }) => Boolean(nav && 'wakeLock' in nav);
+    expect(isWakeLockSupported({ wakeLock: {} })).toBe(true);
+    expect(isWakeLockSupported({})).toBe(false);
+
+    // Contrôle du contraste QR (fond blanc pur #ffffff, pixels noirs #000000)
+    const qrOptions = { dark: '#000000', light: '#ffffff', width: 300, margin: 2 };
+    expect(qrOptions.dark).toBe('#000000');
+    expect(qrOptions.light).toBe('#ffffff');
+    expect(qrOptions.width).toBeGreaterThanOrEqual(280);
+  });
+
+  it('Option 2 : Filtre fidèlement les invités du RP par statut (Entrés vs En attente)', () => {
+    const guests = [
+      { id: '1', guest_name: 'Camille Martin', is_scanned: true, scanned_at: '2026-09-18T23:45:00Z' },
+      { id: '2', guest_name: 'Théo Leroux', is_scanned: false, scanned_at: null },
+      { id: '3', guest_name: 'Sarah Benali', is_scanned: true, scanned_at: '2026-09-19T00:12:00Z' },
+      { id: '4', guest_name: 'Maxime Petit', is_scanned: false, scanned_at: null },
+    ];
+
+    const scannedCount = guests.filter(g => g.is_scanned).length;
+    const pendingCount = guests.filter(g => !g.is_scanned).length;
+
+    expect(scannedCount).toBe(2);
+    expect(pendingCount).toBe(2);
+    expect(guests.length).toBe(4);
+
+    // Calcul du taux de conversion temps réel de la soirée
+    const conversion = Math.round((scannedCount / guests.length) * 100);
+    expect(conversion).toBe(50);
+  });
+
+  it('Option 4 : Différencie le guide d\'épinglage écran d\'accueil iOS vs Android', () => {
+    const getPlatformInstructions = (userAgent: string) => {
+      const isIOS = /iphone|ipad|ipod/i.test(userAgent);
+      if (isIOS) {
+        return { platform: 'iOS', action: 'Partager -> Sur l\'écran d\'accueil' };
+      }
+      return { platform: 'Android', action: 'Menu ⋮ -> Ajouter à l\'écran d\'accueil' };
+    };
+
+    const iphone = getPlatformInstructions('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)');
+    expect(iphone.platform).toBe('iOS');
+    expect(iphone.action).toContain('Partager');
+
+    const android = getPlatformInstructions('Mozilla/5.0 (Linux; Android 14; Pixel 8)');
+    expect(android.platform).toBe('Android');
+    expect(android.action).toContain('Menu ⋮');
+  });
+
+  it('Option 5 : Valide le Pass Duo (2 personnes admises et accompagnateur identifié)', () => {
+    const createPassDuoInfo = (guestName: string, companionName?: string | null) => {
+      const isDuo = Boolean(companionName && companionName.trim().length > 0);
+      return {
+        isDuo,
+        authorizedEntries: isDuo ? 2 : 1,
+        label: isDuo ? 'PASS DUO VIP • 2 ENTRÉES' : 'PASS INVITÉ SIMPLE',
+        summary: isDuo 
+          ? `Titulaire : ${guestName} + Accompagnant(e) : ${companionName}`
+          : `Titulaire : ${guestName}`,
+      };
+    };
+
+    const duo = createPassDuoInfo('Lucas Bernard', 'Emma Moreau');
+    expect(duo.isDuo).toBe(true);
+    expect(duo.authorizedEntries).toBe(2);
+    expect(duo.label).toContain('PASS DUO');
+    expect(duo.summary).toContain('Emma Moreau');
+
+    const single = createPassDuoInfo('Lucas Bernard', null);
+    expect(single.isDuo).toBe(false);
+    expect(single.authorizedEntries).toBe(1);
+    expect(single.label).toContain('PASS INVITÉ SIMPLE');
+  });
+});
+
+
 

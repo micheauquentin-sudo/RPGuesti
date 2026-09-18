@@ -8,6 +8,7 @@ import {
   generateSecurityCode,
   formatSecurityEmissionStamp
 } from '@/lib/utils';
+import Link from 'next/link';
 import { 
   Sparkles, 
   Calendar, 
@@ -19,19 +20,24 @@ import {
   SunMedium, 
   XCircle, 
   Share2, 
-  Check,
-  Users,
-  MessageCircle,
-  Copy,
-  CalendarPlus,
-  Navigation,
-  Car,
-  Star,
-  Send,
-  Shield,
-  Lock,
-  Shirt,
-  IdCard
+  Check, 
+  Users, 
+  MessageCircle, 
+  Copy, 
+  CalendarPlus, 
+  Navigation, 
+  Car, 
+  Star, 
+  Send, 
+  Shield, 
+  Lock, 
+  Shirt, 
+  IdCard,
+  Maximize2,
+  Smartphone,
+  X,
+  PlusSquare,
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -96,7 +102,8 @@ function drawRoundedRect(
 // Générateur du billet VIP complet haute définition
 async function generateFullTicketImage(
   registration: RegistrationDetail,
-  qrCanvas: HTMLCanvasElement
+  qrCanvas: HTMLCanvasElement,
+  companionName?: string | null
 ): Promise<string> {
   const canvas = document.createElement('canvas');
   canvas.width = 900;
@@ -180,7 +187,11 @@ async function generateFullTicketImage(
 
   ctx.fillStyle = '#000000';
   ctx.font = '900 23px system-ui, -apple-system, sans-serif';
-  ctx.fillText('★ ENTRÉE 100% GRATUITE • BILLET INVITÉ ★', 450, bannerY + 43);
+  if (companionName) {
+    ctx.fillText('★ PASS DUO VIP • 2 ENTRÉES GRATUITES ★', 450, bannerY + 43);
+  } else {
+    ctx.fillText('★ ENTRÉE 100% GRATUITE • BILLET INVITÉ ★', 450, bannerY + 43);
+  }
 
   // 5. Affiche ou Bloc Soirée
   let currentY = 330;
@@ -245,42 +256,49 @@ async function generateFullTicketImage(
 
   // 6. Bloc Invité & RP
   const infoY = currentY;
+  const infoBoxH = companionName ? 98 : 80;
   ctx.fillStyle = '#121522';
-  drawRoundedRect(ctx, 45, infoY, 810, 80, 14);
+  drawRoundedRect(ctx, 45, infoY, 810, infoBoxH, 14);
   ctx.fill();
   ctx.strokeStyle = '#232738';
   ctx.lineWidth = 1.5;
-  drawRoundedRect(ctx, 45, infoY, 810, 80, 14);
+  drawRoundedRect(ctx, 45, infoY, 810, infoBoxH, 14);
   ctx.stroke();
 
   // Séparateur vertical
   ctx.strokeStyle = '#232738';
   ctx.beginPath();
   ctx.moveTo(450, infoY + 12);
-  ctx.lineTo(450, infoY + 68);
+  ctx.lineTo(450, infoY + infoBoxH - 12);
   ctx.stroke();
 
   // Invité
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#9ca3af';
+  ctx.fillStyle = companionName ? '#e5b85c' : '#9ca3af';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('INVITÉ(E) NOMINATIF', 68, infoY + 30);
+  ctx.fillText(companionName ? '🎟️ PASS DUO (2 ENTRÉES)' : 'INVITÉ(E) NOMINATIF', 68, infoY + 28);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = '900 20px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`${registration.guest.first_name} ${registration.guest.last_name}`, 68, infoY + 58);
+  ctx.font = '900 18px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`${registration.guest.first_name} ${registration.guest.last_name}`, 68, infoY + 52);
+
+  if (companionName) {
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+    ctx.fillText(`+1 Accompagnant(e) : ${companionName}`, 68, infoY + 76);
+  }
 
   // RP
   ctx.textAlign = 'left';
   ctx.fillStyle = '#9ca3af';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('INVITATION PAR LE RP', 475, infoY + 30);
+  ctx.fillText('INVITATION PAR LE RP', 475, infoY + 28);
 
   ctx.fillStyle = '#e5b85c';
   ctx.font = '900 20px system-ui, -apple-system, sans-serif';
-  ctx.fillText(`${registration.promoter.first_name} ${registration.promoter.last_name}`, 475, infoY + 58);
+  ctx.fillText(`${registration.promoter.first_name} ${registration.promoter.last_name}`, 475, infoY + 54);
 
-  currentY += 96;
+  currentY += infoBoxH + 16;
 
   // 7. Carte Blanche QR Code Haute Définition
   const qrBoxY = currentY;
@@ -440,6 +458,90 @@ export default function GuestQrPassPage({
   // Filigrane Dynamique Anti-Photoshop : Horloge Temps Réel (Paris)
   const [liveServerTime, setLiveServerTime] = useState('');
 
+  // Mode Passage Porte Flash (Plein écran & Anti-veille)
+  const [doorModeOpen, setDoorModeOpen] = useState(false);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const doorCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wakeLockRef = useRef<any>(null);
+
+  // Modal Épingler à l'écran d'accueil
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [copiedPassUrl, setCopiedPassUrl] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const ua = window.navigator.userAgent.toLowerCase();
+      setIsIOS(/iphone|ipad|ipod/.test(ua));
+    }
+  }, []);
+
+  const requestWakeLock = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+        const sentinel = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current = sentinel;
+        setWakeLockActive(true);
+        sentinel.addEventListener('release', () => {
+          setWakeLockActive(false);
+        });
+      }
+    } catch (err) {
+      console.warn('Wake Lock non supporté ou refusé:', err);
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    try {
+      if (wakeLockRef.current) {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+        setWakeLockActive(false);
+      }
+    } catch (err) {
+      console.warn('Erreur libération wake lock:', err);
+    }
+  };
+
+  const openDoorMode = () => {
+    setDoorModeOpen(true);
+    requestWakeLock();
+  };
+
+  const closeDoorMode = () => {
+    setDoorModeOpen(false);
+    releaseWakeLock();
+  };
+
+  useEffect(() => {
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Génération du QR Code plein écran pour le mode porte
+  useEffect(() => {
+    if (doorModeOpen && doorCanvasRef.current && registration) {
+      QRCode.toCanvas(doorCanvasRef.current, activeToken, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      }).catch((err) => console.error('Erreur canvas mode porte:', err));
+    }
+  }, [doorModeOpen, activeToken, registration]);
+
+  const handleCopyPassUrl = () => {
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedPassUrl(true);
+    setTimeout(() => setCopiedPassUrl(false), 2500);
+  };
+
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -462,10 +564,26 @@ export default function GuestQrPassPage({
       const sp = new URLSearchParams(window.location.search);
       const cToken = sp.get('companion');
       const cName = sp.get('compName');
-      if (cToken) setCompanionToken(cToken);
-      if (cName) setCompanionName(decodeURIComponent(cName));
+      if (cToken && cName) {
+        setCompanionToken(cToken);
+        setCompanionName(decodeURIComponent(cName));
+        try {
+          localStorage.setItem(`astra_duo_${token}`, JSON.stringify({ token: cToken, name: decodeURIComponent(cName) }));
+        } catch {}
+      } else {
+        try {
+          const cached = localStorage.getItem(`astra_duo_${token}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed?.token && parsed?.name) {
+              setCompanionToken(parsed.token);
+              setCompanionName(parsed.name);
+            }
+          }
+        } catch {}
+      }
     }
-  }, []);
+  }, [token]);
 
   const getInviteUrl = () => {
     if (typeof window === 'undefined') return '';
@@ -724,7 +842,7 @@ export default function GuestQrPassPage({
 
     try {
       setDownloading(true);
-      const ticketImageDataUrl = await generateFullTicketImage(registration, canvasRef.current);
+      const ticketImageDataUrl = await generateFullTicketImage(registration, canvasRef.current, companionName);
 
       const link = document.createElement('a');
       const sanitizedName = `${registration.guest.first_name}-${registration.guest.last_name}`
@@ -928,6 +1046,30 @@ export default function GuestQrPassPage({
             </div>
           ) : (
             <div className="p-6 flex flex-col items-center justify-center bg-[#0d0e14]">
+              {/* 🎟️ BADGE PASS DUO VIP (SI PRÉSENT) */}
+              {companionName && (
+                <div className="w-full mb-3 p-3 bg-gradient-to-r from-emerald-950/80 via-[#151928] to-emerald-950/80 border border-emerald-500/50 rounded-2xl flex items-center justify-between text-left shadow-xl">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold">
+                      👥
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-black uppercase text-white tracking-wider">
+                          PASS DUO VIP • 2 ENTRÉES
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                          Garanti
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-300 mt-0.5">
+                        Titulaire : <strong className="text-white">{registration.guest.first_name} {registration.guest.last_name}</strong> • +1 : <strong className="text-emerald-400">{companionName}</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 🛡️ FILIGRANE DYNAMIQUE ANTI-PHOTOSHOP (LIVE PARIS) */}
               <div className="w-full mb-3.5 p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/60 via-[#161a28] to-emerald-950/60 border border-[#e5b85c]/40 flex items-center justify-between text-left shadow-lg">
                 <div className="flex items-center gap-2">
@@ -1010,12 +1152,25 @@ export default function GuestQrPassPage({
           )}
         </div>
 
-        {/* Conseil luminosité (si non expiré) */}
+        {/* BOUTON MODE PASSAGE PORTE FLASH (PLEIN ÉCRAN & ANTI-VEILLE) */}
         {!isEventExpired && (
-          <div className="mt-3 p-3 rounded-xl bg-[#13151f] border border-[#202434] flex items-center gap-2.5 text-xs text-gray-400">
-            <SunMedium className="w-4 h-4 text-[#e5b85c] shrink-0" />
-            <span>Augmente la luminosité de ton écran pour faciliter la lecture du QR code.</span>
-          </div>
+          <button
+            type="button"
+            onClick={openDoorMode}
+            className="w-full mt-3 py-3.5 px-4 bg-gradient-to-r from-[#171b28] via-[#20273c] to-[#171b28] hover:brightness-125 border border-[#e5b85c]/40 text-white font-black text-xs uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2.5 shadow-xl transition-all cursor-pointer group active:scale-[0.99]"
+          >
+            <div className="w-7 h-7 rounded-lg bg-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center group-hover:scale-110 transition-transform">
+              <SunMedium className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <span className="block text-xs font-black text-white">
+                💡 Mode Passage Porte (Plein Écran & Anti-Veille)
+              </span>
+              <span className="block text-[10px] text-gray-400 font-normal">
+                Maintient l&apos;écran allumé • Contraste maximal pour les scanners
+              </span>
+            </div>
+          </button>
         )}
 
         {/* Bouton Sauvegarder le Billet Complet */}
@@ -1049,6 +1204,18 @@ export default function GuestQrPassPage({
           >
             <AlertCircle className="w-4 h-4 text-rose-500" />
             <span>Billet expiré (Soirée passée)</span>
+          </button>
+        )}
+
+        {/* BOUTON ÉPINGLER À L'ÉCRAN D'ACCUEIL */}
+        {!isEventExpired && (
+          <button
+            type="button"
+            onClick={() => setPinModalOpen(true)}
+            className="w-full mt-2 py-3 px-4 bg-[#141724] hover:bg-[#1a1e2f] border border-[#272d42] text-gray-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <Smartphone className="w-4 h-4 text-[#e5b85c]" />
+            <span>📲 Épingler à mon Écran d&apos;Accueil (Accès 1-Clic)</span>
           </button>
         )}
 
@@ -1459,6 +1626,178 @@ export default function GuestQrPassPage({
           <span>Billet officiel nominatif vérifié — Orléans</span>
         </div>
       </div>
+
+      {/* MODAL 1 : PLEIN ÉCRAN MODE PASSAGE PORTE (CONTRASTE MAX & ANTI-VEILLE) */}
+      {doorModeOpen && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-between p-5 select-none animate-in fade-in duration-200">
+          {/* Header Bar */}
+          <div className="w-full max-w-sm flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                DIRECT PARIS • {liveServerTime}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={closeDoorMode}
+              className="p-2 rounded-full bg-white/15 text-white hover:bg-white/25 active:scale-95 transition-all"
+              aria-label="Fermer le mode porte"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Central High-Contrast QR Card */}
+          <div className="w-full max-w-sm flex flex-col items-center justify-center my-auto">
+            {companionName && (
+              <div className="mb-3 px-4 py-1.5 bg-[#e5b85c] text-black font-black text-xs uppercase tracking-wider rounded-full shadow-[0_0_20px_rgba(229,184,92,0.6)]">
+                👥 PASS DUO : 2 ENTRÉES AUTORISÉES
+              </div>
+            )}
+
+            <div className="p-4 bg-white rounded-3xl shadow-[0_0_60px_rgba(255,255,255,0.25)] border-4 border-white">
+              <canvas ref={doorCanvasRef} className="rounded-xl block max-w-full h-auto" />
+            </div>
+
+            <div className="mt-5 text-center space-y-1">
+              <p className="text-2xl font-black text-white tracking-wide">
+                {registration.guest.first_name} {registration.guest.last_name}
+              </p>
+              {companionName && (
+                <p className="text-sm font-bold text-emerald-400">
+                  +1 Accompagnant(e) : {companionName}
+                </p>
+              )}
+              <p className="text-xs text-[#e5b85c] font-semibold">
+                Guestlist de {registration.promoter.first_name} {registration.promoter.last_name}
+              </p>
+              <p className="text-[10px] font-mono text-gray-400 pt-1">
+                REF : #{generateSecurityCode(activeToken)}
+              </p>
+            </div>
+
+            <div className="mt-4 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-2">
+              <SunMedium className="w-3.5 h-3.5" />
+              <span>{wakeLockActive ? 'Anti-veille actif (Écran maintenu allumé)' : 'Contraste maximal porte activé'}</span>
+            </div>
+          </div>
+
+          {/* Bottom Button */}
+          <div className="w-full max-w-sm pb-4">
+            <button
+              type="button"
+              onClick={closeDoorMode}
+              className="w-full py-4 bg-white text-black font-black text-sm uppercase tracking-wider rounded-2xl shadow-2xl hover:bg-gray-200 active:scale-98 transition-all"
+            >
+              Fermer le mode plein écran
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2 : GUIDE ACCÈS 1-CLIC & ÉPINGLAGE ÉCRAN D'ACCUEIL */}
+      {pinModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#121522] border border-[#272d42] w-full max-w-sm rounded-3xl p-5 text-left shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setPinModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                  Accès 1-Clic à la Porte
+                </h3>
+                <p className="text-[11px] text-[#e5b85c] font-semibold">
+                  Retrouve ton pass instantanément
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">
+              Évite de chercher ton QR code dans tes mails ou WhatsApp devant les videurs. Ajoute ce pass directement sur ton écran d&apos;accueil :
+            </p>
+
+            {isIOS ? (
+              /* Guide iPhone Safari */
+              <div className="space-y-2.5 bg-[#090b12] p-3.5 rounded-2xl border border-white/5 mb-4">
+                <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 block mb-1">
+                  Sur iPhone (Safari) :
+                </span>
+                <div className="flex items-center gap-2.5 text-xs text-gray-200">
+                  <span className="w-6 h-6 rounded-lg bg-white/10 text-white font-black text-[11px] flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <p className="text-[11px]">
+                    Appuie sur l&apos;icône <strong>Partager</strong> <span className="text-sky-400 font-bold">(carré avec flèche 📤 en bas)</span>.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-gray-200">
+                  <span className="w-6 h-6 rounded-lg bg-white/10 text-white font-black text-[11px] flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <p className="text-[11px]">
+                    Fais défiler et touche <strong>« Sur l&apos;écran d&apos;accueil »</strong> (➕).
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Guide Android Chrome */
+              <div className="space-y-2.5 bg-[#090b12] p-3.5 rounded-2xl border border-white/5 mb-4">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block mb-1">
+                  Sur Android (Chrome) :
+                </span>
+                <div className="flex items-center gap-2.5 text-xs text-gray-200">
+                  <span className="w-6 h-6 rounded-lg bg-white/10 text-white font-black text-[11px] flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <p className="text-[11px]">
+                    Touche le menu d&apos;options <strong>(les 3 points ⋮ en haut à droite)</strong>.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 text-xs text-gray-200">
+                  <span className="w-6 h-6 rounded-lg bg-white/10 text-white font-black text-[11px] flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <p className="text-[11px]">
+                    Sélectionne <strong>« Ajouter à l&apos;écran d&apos;accueil »</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleCopyPassUrl}
+              className="w-full py-2.5 px-3 bg-[#191d2d] hover:bg-[#22273c] border border-[#2d3348] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all"
+            >
+              {copiedPassUrl ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-400">Lien direct copié !</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 text-[#e5b85c]" />
+                  <span>Copier le lien direct de mon pass</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
