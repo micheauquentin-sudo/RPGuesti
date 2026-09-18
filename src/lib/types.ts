@@ -115,6 +115,13 @@ export type CheckInStatusCode =
   | 'NOT_FOUND'
   | 'ERROR';
 
+export interface GuestBadgeInfo {
+  type: 'VIP_REGULAR' | 'NEW_CLUBBER' | 'DUO_AMBASSADOR' | 'REGULAR';
+  label: string;
+  welcomeMsg: string;
+  visitsCount: number;
+}
+
 export interface CheckInResponse {
   success: boolean;
   status: CheckInStatusCode;
@@ -125,6 +132,7 @@ export interface CheckInResponse {
   event_name?: string;
   scanned_at?: string;
   scanned_by?: string;
+  guest_badge?: GuestBadgeInfo;
 }
 
 export interface AuditLog {

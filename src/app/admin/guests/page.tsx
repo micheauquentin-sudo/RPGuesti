@@ -27,6 +27,7 @@ export default function AdminGuestsPage() {
   const [guests, setGuests] = useState<GuestWithActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState<'all' | 'vip' | 'new' | 'blacklisted'>('all');
 
   const supabase = createClient();
 
@@ -117,17 +118,31 @@ export default function AdminGuestsPage() {
     }
   };
 
+  const totalGuests = guests.length;
+  const vipGuestsCount = guests.filter((g) => !g.is_blacklisted && (g.total_entries >= 2 || g.total_registrations >= 2)).length;
+  const newGuestsCount = guests.filter((g) => !g.is_blacklisted && g.total_entries <= 1 && g.total_registrations <= 1).length;
+  const blacklistedCount = guests.filter((g) => g.is_blacklisted).length;
+
+  const repeatGuests = guests.filter((g) => g.total_entries >= 2 || g.total_registrations >= 2).length;
+  const retentionRate = totalGuests > 0 ? Math.round((repeatGuests / totalGuests) * 100) : 0;
+
   const filtered = guests.filter((g) => {
+    // 1. Filtre par segment
+    if (segmentFilter === 'vip') {
+      if (g.is_blacklisted || (g.total_entries < 2 && g.total_registrations < 2)) return false;
+    } else if (segmentFilter === 'new') {
+      if (g.is_blacklisted || g.total_entries > 1 || g.total_registrations > 1) return false;
+    } else if (segmentFilter === 'blacklisted') {
+      if (!g.is_blacklisted) return false;
+    }
+
+    // 2. Recherche textuelle
     const q = searchQuery.toLowerCase();
     const fullName = `${g.first_name} ${g.last_name}`.toLowerCase();
     const phone = (g.phone || '').toLowerCase();
     const insta = (g.instagram_handle || '').toLowerCase();
     return fullName.includes(q) || phone.includes(q) || insta.includes(q);
   });
-
-  const totalGuests = guests.length;
-  const repeatGuests = guests.filter((g) => g.total_entries >= 2 || g.total_registrations >= 2).length;
-  const retentionRate = totalGuests > 0 ? Math.round((repeatGuests / totalGuests) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -190,6 +205,53 @@ export default function AdminGuestsPage() {
         </div>
       </div>
 
+      {/* Barre de Filtres de Segmentation VIP & Clubbers */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setSegmentFilter('all')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            segmentFilter === 'all'
+              ? 'bg-white text-black font-black shadow'
+              : 'bg-[#0f1118] text-gray-400 hover:text-white border border-[#1d212f]'
+          }`}
+        >
+          Tous les invités ({totalGuests})
+        </button>
+
+        <button
+          onClick={() => setSegmentFilter('vip')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+            segmentFilter === 'vip'
+              ? 'bg-[#e5b85c] text-black font-black shadow'
+              : 'bg-[#0f1118] text-gray-400 hover:text-[#e5b85c] border border-[#1d212f]'
+          }`}
+        >
+          <span>👑 Habitués VIP ({vipGuestsCount})</span>
+        </button>
+
+        <button
+          onClick={() => setSegmentFilter('new')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+            segmentFilter === 'new'
+              ? 'bg-blue-500 text-white font-black shadow'
+              : 'bg-[#0f1118] text-gray-400 hover:text-blue-400 border border-[#1d212f]'
+          }`}
+        >
+          <span>⭐ Nouveaux Clubbers ({newGuestsCount})</span>
+        </button>
+
+        <button
+          onClick={() => setSegmentFilter('blacklisted')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+            segmentFilter === 'blacklisted'
+              ? 'bg-red-600 text-white font-black shadow'
+              : 'bg-[#0f1118] text-gray-400 hover:text-red-400 border border-[#1d212f]'
+          }`}
+        >
+          <span>⛔ Blacklistés ({blacklistedCount})</span>
+        </button>
+      </div>
+
       {/* Table des Invités */}
       <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
@@ -221,19 +283,26 @@ export default function AdminGuestsPage() {
                 filtered.map((g) => (
                   <tr key={g.id} className="hover:bg-[#141722]/80 transition-colors">
                     <td className="py-4 px-5 text-white">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold">{g.first_name} {g.last_name}</span>
-                        {g.is_blacklisted && (
+                        {g.is_blacklisted ? (
                           <span 
                             title={g.blacklist_reason || 'Signalé'}
-                            className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] font-black uppercase tracking-wider shrink-0"
+                            className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 text-[9px] font-black uppercase tracking-wider shrink-0"
                           >
                             ⛔ BLACKLISTÉ
                           </span>
-                        )}
-                        {(g.total_entries >= 2 || g.total_registrations >= 2) && !g.is_blacklisted && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30 text-[9px] font-black uppercase tracking-wider shrink-0">
-                            ★ VIP HABITUÉ
+                        ) : g.total_entries >= 3 ? (
+                          <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#e5b85c]/25 to-amber-500/25 text-[#e5b85c] border border-[#e5b85c]/50 text-[9px] font-black uppercase tracking-wider shrink-0 shadow-xs">
+                            👑 VIP GOLD ({g.total_entries} entrées)
+                          </span>
+                        ) : g.total_entries >= 2 || g.total_registrations >= 2 ? (
+                          <span className="px-2 py-0.5 rounded-full bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30 text-[9px] font-black uppercase tracking-wider shrink-0">
+                            ★ HABITUÉ
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[9px] font-bold uppercase tracking-wider shrink-0">
+                            ⭐ NOUVEAU
                           </span>
                         )}
                       </div>

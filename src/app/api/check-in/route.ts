@@ -128,6 +128,55 @@ export async function POST(request: Request) {
       );
     }
 
+    // 6. Calcul du badge de fidélité & accueil VIP personnalisé
+    if (data && data.status === 'VALID') {
+      try {
+        const { data: regInfo } = await supabaseAdmin
+          .from('registrations')
+          .select('guest_id, companion_first_name')
+          .eq('qr_token', qrToken)
+          .maybeSingle();
+
+        if (regInfo?.guest_id) {
+          const { count } = await supabaseAdmin
+            .from('entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('guest_id', regInfo.guest_id)
+            .in('status', ['valid', 'VALID']);
+
+          const visitsCount = count || 1;
+          const isDuo = Boolean(regInfo.companion_first_name);
+
+          let badgeType: 'VIP_REGULAR' | 'NEW_CLUBBER' | 'DUO_AMBASSADOR' | 'REGULAR' = 'REGULAR';
+          let badgeLabel = 'Clubber ASTRA';
+          let welcomeMsg = 'Entrée validée. Bonne soirée !';
+
+          if (visitsCount >= 3) {
+            badgeType = 'VIP_REGULAR';
+            badgeLabel = `👑 HABITUÉ VIP (${visitsCount}e venue)`;
+            welcomeMsg = 'Bon retour parmi nous !';
+          } else if (visitsCount === 1) {
+            badgeType = 'NEW_CLUBBER';
+            badgeLabel = '⭐ NOUVEAU CLUBBER';
+            welcomeMsg = "Bienvenue à l'ASTRA pour la première fois !";
+          } else if (isDuo) {
+            badgeType = 'DUO_AMBASSADOR';
+            badgeLabel = '👥 PASS DUO (+1)';
+            welcomeMsg = 'Bienvenue à tous les deux !';
+          }
+
+          data.guest_badge = {
+            type: badgeType,
+            label: badgeLabel,
+            welcomeMsg,
+            visitsCount,
+          };
+        }
+      } catch (badgeErr) {
+        console.warn('Erreur calcul badge invité:', badgeErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (err: unknown) {
     const error = err as Error;

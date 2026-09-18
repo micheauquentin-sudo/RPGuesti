@@ -594,6 +594,18 @@ export default function MobileScannerPage() {
                 <h1 className="text-3xl font-black text-white mb-2">
                   {scanResult.guest_name}
                 </h1>
+
+                {scanResult.guest_badge && (
+                  <div className="mb-4 px-4 py-2 rounded-2xl bg-black/60 border border-emerald-400/40 inline-flex flex-col items-center shadow-lg animate-in zoom-in-90 duration-200">
+                    <span className="text-xs font-black tracking-wider text-[#e5b85c] uppercase flex items-center gap-1.5">
+                      {scanResult.guest_badge.label}
+                    </span>
+                    <span className="text-xs text-emerald-200 font-semibold mt-0.5 italic">
+                      « {scanResult.guest_badge.welcomeMsg} »
+                    </span>
+                  </div>
+                )}
+
                 <div className="space-y-1 text-emerald-200 font-medium text-base mb-6">
                   <p>RP : <strong className="text-white font-bold">{scanResult.promoter_name}</strong></p>
                   <p className="text-sm opacity-80">{scanResult.event_name}</p>

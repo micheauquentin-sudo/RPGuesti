@@ -170,6 +170,38 @@ export default async function AdminDashboardPage() {
     };
   });
 
+  // 🔮 CALCUL DE L'AFFLUENCE PRÉDICTIVE CE SOIR
+  const pastEventsWithScans = pastEventsComparison.filter((e) => e.entriesCount > 0);
+  const avgHistoricalAttendanceRate = pastEventsWithScans.length > 0
+    ? Math.round(pastEventsWithScans.reduce((sum, e) => sum + e.attendanceRate, 0) / pastEventsWithScans.length)
+    : 62; // 62% ratio de venue standard en clubbing
+
+  const regsToday = registrationsToday ?? 0;
+  const baselineRate = avgHistoricalAttendanceRate / 100;
+  const rawMin = Math.round(regsToday * Math.max(0.35, baselineRate * 0.8));
+  const rawMax = Math.round(regsToday * Math.min(0.95, baselineRate * 1.25) + (regsToday === 0 ? 40 : 0));
+  const predictedMin = Math.max(entriesCountToday, rawMin);
+  const predictedMax = Math.max(entriesCountToday, Math.min(MAX_CLUB_CAPACITY, rawMax));
+  const predictedAvg = Math.round((predictedMin + predictedMax) / 2);
+  const probabilityFull = Math.min(99, Math.round((predictedMax / MAX_CLUB_CAPACITY) * 100));
+
+  let rushForecast = 'Rush classique attendu entre 00h30 et 02h00';
+  let staffRecommendation = 'Effectif standard recommandé (Bar : 4 barmen, Sécurité : 3 agents porte)';
+  let forecastBadge = 'Affluence Modérée';
+  let forecastColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+
+  if (predictedMax >= 520) {
+    rushForecast = '⚡ RUSH MASSIF ATTENDU : Arrivées groupées dès 23h30 - 01h30';
+    staffRecommendation = '⚠️ Renfort recommandé : Double vestiaire complet & 4 à 5 agents de sécurité en filtrage';
+    forecastBadge = '🔥 RISQUE DE CLUB COMPLET';
+    forecastColor = 'text-rose-400 bg-rose-500/15 border-rose-500/30 animate-pulse';
+  } else if (predictedMax >= 360) {
+    rushForecast = 'Forte affluence continue entre 00h15 et 02h30';
+    staffRecommendation = 'Équipe bar renforcée & fluidification active de la file d\'attente';
+    forecastBadge = '⭐ Grosse Soirée Prévue';
+    forecastColor = 'text-[#e5b85c] bg-[#e5b85c]/15 border-[#e5b85c]/30';
+  }
+
   // Calcul Courbe d'Affluence Heure par Heure (Nightclub Peak Curve)
   const hourlySlots = [
     { label: '22h-23h', hour: 22, count: 0 },
@@ -386,6 +418,66 @@ export default async function AdminDashboardPage() {
           <p className="text-[11px] text-[#e5b85c]/80 mt-1">
             Entrées réelles comptabilisées
           </p>
+        </div>
+      </div>
+
+      {/* AFFLUENCE PRÉDICTIVE & RECOMMANDATION STAFF (INTELLIGENCE CLUB) */}
+      <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#e5b85c]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#e5b85c]/20 to-purple-500/20 border border-[#e5b85c]/40 flex items-center justify-center text-xl shrink-0 shadow-lg">
+              🔮
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-base font-black text-white">
+                  Affluence Prédictive Ce Soir
+                </h2>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${forecastColor}`}>
+                  {forecastBadge}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Projection statistique basée sur les <strong>{regsToday} pass générés</strong> aujourd&apos;hui et l&apos;historique de présence de l&apos;ASTRA ({avgHistoricalAttendanceRate}% de conversion moyenne).
+              </p>
+            </div>
+          </div>
+
+          {/* Plage d'estimation */}
+          <div className="bg-[#141724] border border-[#232738] p-4 rounded-2xl shrink-0 text-left sm:text-right flex sm:flex-col items-center sm:items-end justify-between gap-2">
+            <div>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                Estimation Fréquentation
+              </span>
+              <p className="text-2xl font-black text-[#e5b85c]">
+                {predictedMin} à {predictedMax} <span className="text-sm font-semibold text-gray-400">pers.</span>
+              </p>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-400">
+              ~{predictedAvg} entrées attendues ({probabilityFull}% capacité)
+            </span>
+          </div>
+        </div>
+
+        {/* Détail opérationnel & Recommandation Staff */}
+        <div className="mt-5 pt-4 border-t border-[#1e2333] grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[#141724] border border-[#232738]">
+            <Clock className="w-4 h-4 text-[#e5b85c] shrink-0" />
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Fenêtre de Rush Estimée</span>
+              <p className="font-bold text-white mt-0.5">{rushForecast}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[#141724] border border-[#232738]">
+            <Users className="w-4 h-4 text-blue-400 shrink-0" />
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Recommandation Staff &amp; Sécu</span>
+              <p className="font-bold text-gray-200 mt-0.5">{staffRecommendation}</p>
+            </div>
+          </div>
         </div>
       </div>
 
