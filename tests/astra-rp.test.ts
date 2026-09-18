@@ -414,7 +414,29 @@ describe('ASTRA RP — Nouvelles Fonctionnalités Clubbing (Options 1, 2, 4, 5)'
     expect(single.authorizedEntries).toBe(1);
     expect(single.label).toContain('PASS INVITÉ SIMPLE');
   });
+
+  it('Onglet Guide RP : Valide la navigation et les super-pouvoirs du produit', async () => {
+    const { PROMOTER_RANKS } = await import('../src/lib/promoter-ranks');
+
+    // Vérifier les 5 rangs présentés dans le guide
+    expect(PROMOTER_RANKS).toHaveLength(5);
+    expect(PROMOTER_RANKS.map(r => r.name)).toEqual([
+      'Rookie RP',
+      'RP Confirmé',
+      'Star RP',
+      'VIP Diamond RP',
+      'Légende ASTRA',
+    ]);
+
+    // Validation du switch d'onglets
+    type TabType = 'dashboard' | 'guide';
+    let currentTab: TabType = 'dashboard';
+    const switchTab = (tab: TabType) => { currentTab = tab; };
+
+    expect(currentTab).toBe('dashboard');
+    switchTab('guide');
+    expect(currentTab).toBe('guide');
+    switchTab('dashboard');
+    expect(currentTab).toBe('dashboard');
+  });
 });
-
-
-

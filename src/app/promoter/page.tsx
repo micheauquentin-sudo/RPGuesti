@@ -27,13 +27,16 @@ import {
   Bell,
   Eye,
   ArrowRight,
-  Search
+  Search,
+  LayoutDashboard,
+  BookOpen
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { getPromoterRank } from '@/lib/promoter-ranks';
 import InstagramStoryModal from '@/components/promoter/InstagramStoryModal';
+import PromoterGuideTab from '@/components/promoter/PromoterGuideTab';
 import confetti from 'canvas-confetti';
 
 export interface AvatarItem {
@@ -167,6 +170,9 @@ export default function PromoterDashboardPage() {
   const [eventGuests, setEventGuests] = useState<EventGuestItem[]>([]);
   const [guestFilter, setGuestFilter] = useState<'all' | 'scanned' | 'pending'>('all');
   const [guestSearch, setGuestSearch] = useState('');
+
+  // Onglet Actif (Dashboard Opérationnel vs Guide & Découverte Produit)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'guide'>('dashboard');
 
   // Modal Story Instagram HD
   const [storyModalOpen, setStoryModalOpen] = useState(false);
@@ -537,18 +543,89 @@ export default function PromoterDashboardPage() {
             </div>
           </div>
 
-          {/* Edit Profile Button */}
-          <button
-            onClick={() => setEditModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#181b26] hover:bg-[#222636] border border-[#2d3246] text-white text-xs font-semibold transition-all cursor-pointer shadow"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-[#e5b85c]" />
-            <span>Personnaliser ma page</span>
-          </button>
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'guide' ? 'dashboard' : 'guide')}
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow ${
+                activeTab === 'guide'
+                  ? 'bg-gradient-to-r from-[#e5b85c] to-[#d4a037] text-black border-[#e5b85c]'
+                  : 'bg-[#181b26] hover:bg-[#222636] border-[#2d3246] text-[#e5b85c]'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{activeTab === 'guide' ? 'Tableau de bord' : 'Guide & Astuces RP'}</span>
+            </button>
+
+            <button
+              onClick={() => setEditModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#181b26] hover:bg-[#222636] border border-[#2d3246] text-white text-xs font-semibold transition-all cursor-pointer shadow"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-[#e5b85c]" />
+              <span>Personnaliser ma page</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* RÈGLE D'OR BANNER : SEULES LES ENTRÉES SCANNÉES RAPPORTENT DES POINTS */}
+      {/* NAVIGATION ONGLETS RP (Tableau de bord vs Guide & Fonctionnalités) */}
+      <div className="flex items-center p-1.5 bg-[#0f1118] border border-[#232738] rounded-2xl gap-2 shadow-xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+            activeTab === 'dashboard'
+              ? 'bg-gradient-to-r from-[#e5b85c] to-[#d4a037] text-black shadow-lg shadow-[#e5b85c]/20'
+              : 'text-gray-400 hover:text-white hover:bg-[#151824]'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Mon Tableau de Bord</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+              activeTab === 'dashboard' ? 'bg-black text-[#e5b85c]' : 'bg-[#1e2333] text-gray-400'
+            }`}
+          >
+            Live
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('guide')}
+          className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+            activeTab === 'guide'
+              ? 'bg-gradient-to-r from-[#e5b85c] to-[#d4a037] text-black shadow-lg shadow-[#e5b85c]/20'
+              : 'text-gray-400 hover:text-white hover:bg-[#151824]'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Guide &amp; Fonctionnalités</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+              activeTab === 'guide'
+                ? 'bg-black text-[#e5b85c]'
+                : 'bg-[#e5b85c]/20 text-[#e5b85c] border border-[#e5b85c]/40'
+            }`}
+          >
+            Découvrir
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'guide' ? (
+        <PromoterGuideTab
+          promoter={promoter}
+          promoterPublicUrl={promoterPublicUrl}
+          onOpenStoryModal={() => setStoryModalOpen(true)}
+          onOpenEditProfile={() => setEditModalOpen(true)}
+          onShareWhatsApp={shareViaWhatsApp}
+          onSwitchToDashboard={() => setActiveTab('dashboard')}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* RÈGLE D'OR BANNER : SEULES LES ENTRÉES SCANNÉES RAPPORTENT DES POINTS */}
       <div className="p-4 rounded-2xl bg-gradient-to-r from-[#171a26] via-[#1b1f2e] to-[#171a26] border border-[#e5b85c]/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/30 flex items-center justify-center shrink-0">
@@ -1243,6 +1320,8 @@ export default function PromoterDashboardPage() {
           })}
         </div>
       </div>
+    </div>
+  )}
 
       {/* MODAL PERSONNALISER MON PROFIL RP */}
       {editModalOpen && (
