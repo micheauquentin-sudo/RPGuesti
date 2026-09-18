@@ -177,6 +177,71 @@ export async function POST(request: Request) {
       }
     }
 
+    // 7. Détection approfondie des doublons / capture d'écran frauduleuse
+    if (data && data.status === 'ALREADY_USED') {
+      try {
+        const { data: regDetails } = await supabaseAdmin
+          .from('registrations')
+          .select(`
+            id,
+            guest:guests(first_name, last_name),
+            promoter:promoters(first_name, last_name)
+          `)
+          .eq('qr_token', qrToken)
+          .maybeSingle();
+
+        if (regDetails) {
+          const { data: prevEntry } = await supabaseAdmin
+            .from('entries')
+            .select(`
+              scanned_at,
+              scanner:profiles(first_name, last_name, email)
+            `)
+            .eq('registration_id', regDetails.id)
+            .in('status', ['valid', 'VALID'])
+            .order('scanned_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const g = Array.isArray(regDetails.guest) ? regDetails.guest[0] : regDetails.guest;
+          const p = Array.isArray(regDetails.promoter) ? regDetails.promoter[0] : regDetails.promoter;
+          const s = Array.isArray(prevEntry?.scanner) ? prevEntry.scanner[0] : prevEntry?.scanner;
+
+          const guestFullName = g ? `${g.first_name} ${g.last_name}` : (data.guest_name || 'Invité');
+          const promoterFullName = p ? `${p.first_name} ${p.last_name}` : (data.promoter_name || 'RP');
+          const scannerEmail = s?.first_name ? `${s.first_name} (${s.email})` : (s?.email || null);
+
+          let scannedTimeFormatted = 'Plus tôt ce soir';
+          let minutesAgo = 0;
+
+          if (prevEntry?.scanned_at) {
+            const scanDate = new Date(prevEntry.scanned_at);
+            scannedTimeFormatted = scanDate.toLocaleTimeString('fr-FR', {
+              hour: '2-digit',
+              minute: '2-digit',
+              timeZone: 'Europe/Paris',
+            });
+            const diffMs = Date.now() - scanDate.getTime();
+            minutesAgo = Math.max(1, Math.round(diffMs / 60_000));
+          }
+
+          data.duplicate_info = {
+            guest_name: guestFullName,
+            promoter_name: promoterFullName,
+            scanned_at: scannedTimeFormatted,
+            minutes_ago: minutesAgo,
+            original_entry_time: prevEntry?.scanned_at,
+            scanner_email: scannerEmail,
+          };
+          data.guest_name = guestFullName;
+          data.promoter_name = promoterFullName;
+          data.message = `DOUBLON / SCREENSHOT : Billet déjà scanné à ${scannedTimeFormatted} (il y a ${minutesAgo} min)`;
+        }
+      } catch (dupErr) {
+        console.warn('Erreur enrichissement doublon check-in:', dupErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (err: unknown) {
     const error = err as Error;

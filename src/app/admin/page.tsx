@@ -21,6 +21,7 @@ import {
   MessageSquareHeart
 } from 'lucide-react';
 import { formatFrenchDate } from '@/lib/utils';
+import BarRevenueSimulator from '@/components/admin/BarRevenueSimulator';
 
 export const revalidate = 0; // Données temps réel
 
@@ -1139,6 +1140,19 @@ export default async function AdminDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* 💰 SIMULATEUR DE RETOMBÉES BAR & VESTIAIRE (ROI RP) */}
+      <BarRevenueSimulator
+        entriesToday={entriesCountToday}
+        entriesThisYear={entriesThisYear ?? 0}
+        predictedEntriesTonight={predictedAvg}
+        pastEvents={pastEventsComparison.map((e) => ({
+          id: e.id,
+          name: e.name,
+          event_date: e.event_date,
+          entriesCount: e.entriesCount,
+        }))}
+      />
 
       {/* Derniers scans en direct */}
       <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 shadow-xl">

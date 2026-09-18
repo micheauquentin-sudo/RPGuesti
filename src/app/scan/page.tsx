@@ -175,7 +175,7 @@ export default function MobileScannerPage() {
         if (navigator.vibrate) navigator.vibrate(rushMode ? [50] : [100, 50, 100]);
         playFeedbackTone('success');
       } else if (data.status === 'ALREADY_USED') {
-        if (navigator.vibrate) navigator.vibrate([300]);
+        if (navigator.vibrate) navigator.vibrate([250, 100, 250]);
         playFeedbackTone('warning');
       } else if (data.status === 'BLACKLISTED') {
         if (navigator.vibrate) navigator.vibrate([400, 100, 400, 100, 600]);
@@ -197,10 +197,10 @@ export default function MobileScannerPage() {
         ...prev.slice(0, 19),
       ]);
 
-      // Réarmement automatique adapté (Mode Rush = 650ms, sinon 1.8s)
+      // Réarmement automatique adapté (Mode Rush = 650ms, Doublon/Fraude = 2.8s, sinon 1.8s)
       const resumeDelay = rushMode 
-        ? (data.status === 'VALID' ? 650 : 1100) 
-        : (data.status === 'BLACKLISTED' ? 3500 : 1800);
+        ? (data.status === 'VALID' ? 650 : data.status === 'ALREADY_USED' ? 1500 : 1100) 
+        : (data.status === 'BLACKLISTED' ? 3500 : data.status === 'ALREADY_USED' ? 2800 : 1800);
 
       if (autoResumeTimerRef.current) clearTimeout(autoResumeTimerRef.current);
       autoResumeTimerRef.current = setTimeout(() => {
@@ -620,27 +620,60 @@ export default function MobileScannerPage() {
             )}
 
             {scanResult.status === 'ALREADY_USED' && (
-              <div className="text-center animate-in zoom-in-95 duration-150">
-                <div className="w-24 h-24 rounded-full bg-amber-500 text-black flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(245,158,11,0.8)]">
+              <div className="text-center animate-in zoom-in-95 duration-150 max-w-sm w-full mx-auto">
+                <div className="w-24 h-24 rounded-full bg-amber-500 text-black flex items-center justify-center mx-auto mb-4 shadow-[0_0_50px_rgba(245,158,11,0.9)] animate-pulse">
                   <AlertTriangle className="w-16 h-16 stroke-[2.5]" />
                 </div>
-                <span className="inline-block px-4 py-1.5 rounded-full bg-amber-500 text-black font-black text-sm uppercase tracking-widest mb-3">
-                  QR DÉJÀ UTILISÉ
-                </span>
-                <h1 className="text-2xl font-black text-white mb-2">
-                  {scanResult.guest_name}
+                
+                <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-500 text-black font-black text-xs sm:text-sm uppercase tracking-widest mb-3 shadow-lg">
+                  <span>🚨 DOUBLON / SCREENSHOT DÉTECTÉ</span>
+                </div>
+
+                <h1 className="text-2xl font-black text-white mb-1">
+                  {scanResult.duplicate_info?.guest_name || scanResult.guest_name || 'Pass Invité'}
                 </h1>
-                <p className="text-amber-200 font-medium text-sm mb-4">
-                  Déjà enregistré • RP : {scanResult.promoter_name}
+                
+                <p className="text-amber-200 font-bold text-xs mb-4">
+                  RP : <span className="text-white">{scanResult.duplicate_info?.promoter_name || scanResult.promoter_name || 'ASTRA'}</span>
                 </p>
-                {scanResult.scanned_at && (
-                  <div className="p-3 bg-black/40 rounded-xl text-xs text-amber-300 max-w-xs mx-auto mb-6">
-                    Scanné le {new Date(scanResult.scanned_at).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' })}
-                    {scanResult.scanned_by && ` par ${scanResult.scanned_by}`}
+
+                {/* Preuve irréfutable pour le videur */}
+                <div className="p-4 bg-black/75 border-2 border-amber-500/60 rounded-2xl text-left text-xs text-amber-200 space-y-2 mb-5 shadow-2xl backdrop-blur-md">
+                  <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+                    <span className="font-extrabold uppercase text-amber-400 text-[11px] tracking-wider flex items-center gap-1">
+                      <span>⚠️ Billet Déjà Consommé</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-rose-500/30 text-rose-300 font-bold text-[10px]">
+                      REFUS ENTRÉE
+                    </span>
                   </div>
-                )}
-                <p className="text-xs text-amber-300/80 uppercase tracking-wider">
-                  Entrée refusée • Cliquez pour continuer
+
+                  <p className="text-white text-xs leading-relaxed">
+                    Ce QR code nominatif a <strong className="text-amber-400">DÉJÀ ÉTÉ SCANNÉ</strong> à la porte ce soir :
+                  </p>
+
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase font-bold">1er Scan validé à :</p>
+                      <p className="text-sm font-black text-amber-400">
+                        {scanResult.duplicate_info?.scanned_at || (scanResult.scanned_at ? new Date(scanResult.scanned_at).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' }) : 'Plus tôt')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold">Délai écoulé :</p>
+                      <p className="text-xs font-black text-rose-400">
+                        il y a {scanResult.duplicate_info?.minutes_ago || 1} min
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-gray-300 italic pt-1">
+                    Tentative d&apos;entrée multiple avec le même pass ou partage de capture d&apos;écran interdit.
+                  </p>
+                </div>
+
+                <p className="text-xs text-amber-300/90 uppercase tracking-wider font-bold">
+                  Entrée strictement refusée • Cliquez pour continuer
                 </p>
               </div>
             )}

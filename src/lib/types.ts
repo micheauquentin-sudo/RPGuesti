@@ -122,6 +122,15 @@ export interface GuestBadgeInfo {
   visitsCount: number;
 }
 
+export interface DuplicateScanInfo {
+  guest_name: string;
+  promoter_name?: string | null;
+  scanned_at: string;
+  minutes_ago: number;
+  original_entry_time?: string;
+  scanner_email?: string | null;
+}
+
 export interface CheckInResponse {
   success: boolean;
   status: CheckInStatusCode;
@@ -133,6 +142,7 @@ export interface CheckInResponse {
   scanned_at?: string;
   scanned_by?: string;
   guest_badge?: GuestBadgeInfo;
+  duplicate_info?: DuplicateScanInfo;
 }
 
 export interface AuditLog {

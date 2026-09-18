@@ -213,3 +213,69 @@ describe('ASTRA RP — Baromètre Ambiance & Avis Flash Post-Soirée', () => {
     expect(sanitizeComment(null)).toBeNull();
   });
 });
+
+describe('ASTRA RP — Détection des Doublons & Fraude au Scan Porte', () => {
+  it('Calcule fidèlement l’écart en minutes depuis le premier scan validé', () => {
+    const calculateMinutesAgo = (firstScanIso: string, currentTimestamp: number): number => {
+      const diffMs = currentTimestamp - new Date(firstScanIso).getTime();
+      return Math.max(1, Math.round(diffMs / 60_000));
+    };
+
+    const now = Date.now();
+    const tenMinAgo = new Date(now - 10 * 60_000).toISOString();
+    const oneHourAgo = new Date(now - 60 * 60_000).toISOString();
+    const justNow = new Date(now - 10_000).toISOString();
+
+    expect(calculateMinutesAgo(tenMinAgo, now)).toBe(10);
+    expect(calculateMinutesAgo(oneHourAgo, now)).toBe(60);
+    expect(calculateMinutesAgo(justNow, now)).toBe(1);
+  });
+
+  it('Structure la réponse de doublon avec toutes les preuves pour les videurs', () => {
+    const formatDuplicateAlert = (guestName: string, promoterName: string, scanTimeStr: string, minutesAgo: number) => {
+      return {
+        status: 'ALREADY_USED' as const,
+        guest_name: guestName,
+        promoter_name: promoterName,
+        duplicate_info: {
+          guest_name: guestName,
+          promoter_name: promoterName,
+          scanned_at: scanTimeStr,
+          minutes_ago: minutesAgo,
+        },
+        message: `DOUBLON / SCREENSHOT : Billet déjà scanné à ${scanTimeStr} (il y a ${minutesAgo} min)`,
+      };
+    };
+
+    const alert = formatDuplicateAlert('Maxime Dupont', 'Lucas Bernard', '00h42', 18);
+    expect(alert.status).toBe('ALREADY_USED');
+    expect(alert.duplicate_info.guest_name).toBe('Maxime Dupont');
+    expect(alert.duplicate_info.scanned_at).toBe('00h42');
+    expect(alert.duplicate_info.minutes_ago).toBe(18);
+    expect(alert.message).toContain('00h42');
+    expect(alert.message).toContain('18 min');
+  });
+});
+
+describe('ASTRA RP — Simulateur de Retombées Bar & Vestiaire (ROI RP)', () => {
+  it('Calcule fidèlement le chiffre d’affaires indirect généré par les entrées RP', () => {
+    const calculateIndirectRevenue = (entries: number, cloakroom: number, barSpend: number) => {
+      const cloakroomTotal = Math.round(entries * cloakroom);
+      const barTotal = Math.round(entries * barSpend);
+      const totalRevenue = cloakroomTotal + barTotal;
+      return { cloakroomTotal, barTotal, totalRevenue, basketPerGuest: cloakroom + barSpend };
+    };
+
+    // 250 entrées RP : Vestiaire 2€ + Bar 12€ = 14€ / invité
+    const res = calculateIndirectRevenue(250, 2.0, 12.0);
+    expect(res.basketPerGuest).toBe(14.0);
+    expect(res.cloakroomTotal).toBe(500);
+    expect(res.barTotal).toBe(3000);
+    expect(res.totalRevenue).toBe(3500);
+
+    // 0 entrée -> 0 €
+    const zero = calculateIndirectRevenue(0, 2.0, 12.0);
+    expect(zero.totalRevenue).toBe(0);
+  });
+});
+
