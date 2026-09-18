@@ -70,6 +70,22 @@ async function ensureSecurityPolicies() {
       ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS is_blacklisted BOOLEAN DEFAULT false;
       ALTER TABLE public.guests ADD COLUMN IF NOT EXISTS blacklist_reason TEXT;
       ALTER TABLE public.promoters ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0;
+
+      -- 5. Table pour les retours / avis post-soirée des clubbers
+      CREATE TABLE IF NOT EXISTS public.guest_feedbacks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        registration_id UUID REFERENCES public.registrations(id) ON DELETE SET NULL,
+        event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+        guest_id UUID REFERENCES public.guests(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        tags TEXT[] DEFAULT '{}',
+        comment TEXT,
+        created_at TIMESTAMPTZ DEFAULT now()
+      );
+      ALTER TABLE public.guest_feedbacks ENABLE ROW LEVEL SECURITY;
+      DROP POLICY IF EXISTS "Staff lecture feedbacks" ON public.guest_feedbacks;
+      CREATE POLICY "Staff lecture feedbacks" ON public.guest_feedbacks
+        FOR SELECT USING (public.is_staff_or_admin());
     `);
     await client.end();
     migrationChecked = true;
@@ -125,6 +141,27 @@ export async function GET(request: Request) {
       );
     }
 
+    // Vérifier si le pass a été scanné à la porte
+    const { data: entryCheck } = await supabaseAdmin
+      .from('entries')
+      .select('id, scanned_at')
+      .eq('registration_id', data.id)
+      .in('status', ['valid', 'VALID'])
+      .maybeSingle();
+
+    // Vérifier si un avis a déjà été soumis pour ce pass
+    let hasFeedback = false;
+    try {
+      const { data: feedbackCheck } = await supabaseAdmin
+        .from('guest_feedbacks')
+        .select('id')
+        .eq('registration_id', data.id)
+        .maybeSingle();
+      hasFeedback = Boolean(feedbackCheck);
+    } catch {
+      // Table en cours de création
+    }
+
     const guestObj = Array.isArray(data.guest) ? data.guest[0] : data.guest;
     const eventObj = Array.isArray(data.event) ? data.event[0] : data.event;
     const promoterObj = Array.isArray(data.promoter) ? data.promoter[0] : data.promoter;
@@ -135,6 +172,8 @@ export async function GET(request: Request) {
         id: data.id,
         qr_token: data.qr_token,
         status: data.status,
+        is_scanned: Boolean(entryCheck),
+        has_feedback: hasFeedback,
         guest: {
           first_name: guestObj?.first_name || '',
           last_name: guestObj?.last_name || '',

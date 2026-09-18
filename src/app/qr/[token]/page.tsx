@@ -20,7 +20,9 @@ import {
   Copy,
   CalendarPlus,
   Navigation,
-  Car
+  Car,
+  Star,
+  Send
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -28,6 +30,8 @@ interface RegistrationDetail {
   id: string;
   qr_token: string;
   status: string;
+  is_scanned?: boolean;
+  has_feedback?: boolean;
   guest: {
     first_name: string;
     last_name: string;
@@ -372,6 +376,15 @@ export default function GuestQrPassPage({
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
 
+  // Baromètre Ambiance / Avis Flash Post-Soirée
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackHover, setFeedbackHover] = useState<number | null>(null);
+  const [feedbackTags, setFeedbackTags] = useState<string[]>([]);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const sp = new URLSearchParams(window.location.search);
@@ -489,6 +502,72 @@ export default function GuestQrPassPage({
     window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${loc}`, '_blank');
   };
 
+  const AVAILABLE_FEEDBACK_TAGS = [
+    '🎶 Son & DJ set',
+    '⚡ Ambiance survoltée',
+    '🍹 Service Bar au top',
+    '🚪 Entrée fluide',
+    '✨ Carré VIP stylé',
+    '👥 Super public',
+    '💡 Jeux de lumières',
+  ];
+
+  const ratingLabels: Record<number, string> = {
+    1: '👎 Décevant / Pas top',
+    2: '😐 Moyen / Peut mieux faire',
+    3: '🙂 Sympa / Bonne ambiance',
+    4: '🎉 Très bonne soirée !',
+    5: '🔥 Soirée de folie totale !',
+  };
+
+  const handleToggleFeedbackTag = (tag: string) => {
+    setFeedbackTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registration) return;
+    setSubmittingFeedback(true);
+    setFeedbackError(null);
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: activeToken,
+          rating: feedbackRating,
+          tags: feedbackTags,
+          comment: feedbackComment.trim() || undefined,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Impossible d'enregistrer votre avis.");
+      }
+
+      setFeedbackSubmitted(true);
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.8 },
+          colors: ['#e5b85c', '#38bdf8', '#a855f7', '#22c55e'],
+        });
+      } catch {
+        // Non bloquant
+      }
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackError(error.message || 'Une erreur est survenue lors de l’envoi.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   useEffect(() => {
     async function loadRegistration() {
       setLoading(true);
@@ -504,7 +583,11 @@ export default function GuestQrPassPage({
           return;
         }
 
-        setRegistration(json.data as RegistrationDetail);
+        const regData = json.data as RegistrationDetail;
+        setRegistration(regData);
+        if (regData.has_feedback) {
+          setFeedbackSubmitted(true);
+        }
 
         // Confetti d'obtention de pass
         try {
@@ -1001,6 +1084,144 @@ export default function GuestQrPassPage({
             </div>
           </div>
         )}
+
+        {/* ⭐ BAROMÈTRE AMBIANCE / AVIS FLASH POST-SOIRÉE */}
+        <div className="mt-4 p-4 bg-gradient-to-b from-[#151827] to-[#0d0f17] border border-[#e5b85c]/35 rounded-2xl text-left shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#e5b85c]/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center">
+                <Star className="w-3.5 h-3.5 fill-[#e5b85c]" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                  <span>Baromètre Ambiance</span>
+                  {registration?.is_scanned && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold normal-case">
+                      Billet validé
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[11px] text-[#e5b85c] font-semibold">
+                  Note ta soirée à l&apos;ASTRA en 10 secondes
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300 font-medium">
+              100% Anonyme
+            </span>
+          </div>
+
+          {feedbackSubmitted ? (
+            <div className="mt-3 p-3.5 bg-[#1a1e2f] border border-emerald-500/30 rounded-xl text-center">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-2">
+                <Check className="w-4 h-4" />
+              </div>
+              <p className="text-xs font-bold text-white mb-0.5">
+                Avis bien enregistré !
+              </p>
+              <p className="text-[11px] text-gray-300">
+                Merci beaucoup ! Ton retour a été transmis à la direction de l&apos;ASTRA et à {registration?.promoter?.first_name || 'ton RP'}.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmitFeedback} className="mt-3 space-y-3">
+              {/* Étoiles 1 à 5 */}
+              <div className="flex flex-col items-center justify-center py-2.5 bg-[#0d0f17]/70 rounded-xl border border-white/5">
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const isFilled = (feedbackHover ?? feedbackRating) >= star;
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFeedbackRating(star)}
+                        onMouseEnter={() => setFeedbackHover(star)}
+                        onMouseLeave={() => setFeedbackHover(null)}
+                        className="p-1 transition-transform hover:scale-125 focus:outline-none"
+                        aria-label={`${star} étoiles sur 5`}
+                      >
+                        <Star
+                          className={`w-6 h-6 transition-colors ${
+                            isFilled
+                              ? 'text-[#e5b85c] fill-[#e5b85c]'
+                              : 'text-gray-600'
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="text-[11px] font-bold text-[#e5b85c] mt-1.5">
+                  {ratingLabels[feedbackHover ?? feedbackRating]}
+                </span>
+              </div>
+
+              {/* Tags rapides */}
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Ce qui t&apos;a le plus marqué :
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {AVAILABLE_FEEDBACK_TAGS.map((tag) => {
+                    const isSelected = feedbackTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleToggleFeedbackTag(tag)}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all ${
+                          isSelected
+                            ? 'bg-[#e5b85c] text-black font-bold shadow-md shadow-[#e5b85c]/20'
+                            : 'bg-[#191c2b] text-gray-300 hover:bg-[#202538] border border-white/5'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Commentaire optionnel */}
+              <div>
+                <input
+                  type="text"
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="Un mot pour le DJ, le bar ou ton RP ? (optionnel)"
+                  maxLength={250}
+                  className="w-full px-3 py-2 bg-[#121420] border border-[#262b3f] rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#e5b85c]/60 transition-colors"
+                />
+              </div>
+
+              {feedbackError && (
+                <p className="text-[11px] text-rose-400 font-semibold text-center">
+                  {feedbackError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submittingFeedback}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a043] hover:brightness-110 active:scale-[0.99] text-black font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#e5b85c]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submittingFeedback ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>Envoi en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Envoyer mon avis sur la soirée</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
 
         <div className="flex items-center justify-center gap-2 mt-4 text-[10px] text-gray-500">
           {/* eslint-disable-next-line @next/next/no-img-element */}

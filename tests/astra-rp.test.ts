@@ -160,3 +160,56 @@ describe('ASTRA RP — Système de Rangs & Paliers de Prestige RP', () => {
     expect(r350.entriesToNext).toBe(0);
   });
 });
+
+describe('ASTRA RP — Baromètre Ambiance & Avis Flash Post-Soirée', () => {
+  it('Valide strictement les notes de 1 à 5 étoiles', () => {
+    const isValidRating = (r: number) => Number.isInteger(r) && r >= 1 && r <= 5;
+
+    expect(isValidRating(1)).toBe(true);
+    expect(isValidRating(5)).toBe(true);
+    expect(isValidRating(3)).toBe(true);
+    expect(isValidRating(0)).toBe(false);
+    expect(isValidRating(6)).toBe(false);
+    expect(isValidRating(4.5)).toBe(false);
+    expect(isValidRating(-1)).toBe(false);
+  });
+
+  it('Calcule fidèlement le score de satisfaction clubbing (% promoteurs >= 4 étoiles)', () => {
+    const calculateSatisfaction = (ratings: number[]) => {
+      if (ratings.length === 0) return 100;
+      const positive = ratings.filter((r) => r >= 4).length;
+      return Math.round((positive / ratings.length) * 100);
+    };
+
+    // 10 avis : 7 de 5★, 2 de 4★, 1 de 2★ -> 90% de satisfaction
+    expect(calculateSatisfaction([5, 5, 5, 5, 5, 5, 5, 4, 4, 2])).toBe(90);
+
+    // 4 avis : 5, 4, 3, 2 -> 50%
+    expect(calculateSatisfaction([5, 4, 3, 2])).toBe(50);
+
+    // 100% de 5★
+    expect(calculateSatisfaction([5, 5, 5])).toBe(100);
+  });
+
+  it('Assainit et limite les tags et commentaires d’avis pour la sécurité', () => {
+    const sanitizeTags = (tags: unknown[]): string[] => {
+      if (!Array.isArray(tags)) return [];
+      return tags.map((t) => String(t).slice(0, 50)).slice(0, 8);
+    };
+
+    const rawTags = ['🎶 Son & DJ', '🔥 Ambiance', '🍹 Bar', '🚪 Entrée', '✨ VIP', '👥 Public', '💡 Lumière', '🎯 Orga', 'EXTRA_TAG_9'];
+    const clean = sanitizeTags(rawTags);
+    expect(clean.length).toBe(8);
+    expect(clean).not.toContain('EXTRA_TAG_9');
+
+    const sanitizeComment = (c: unknown): string | null => {
+      if (typeof c !== 'string') return null;
+      const trimmed = c.trim();
+      return trimmed.length > 0 ? trimmed.slice(0, 500) : null;
+    };
+
+    expect(sanitizeComment('  Soirée incroyable avec DJ Snake !  ')).toBe('Soirée incroyable avec DJ Snake !');
+    expect(sanitizeComment('   ')).toBeNull();
+    expect(sanitizeComment(null)).toBeNull();
+  });
+});

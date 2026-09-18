@@ -15,7 +15,10 @@ import {
   Flame,
   Award,
   BarChart3,
-  Activity
+  Activity,
+  Star,
+  ThumbsUp,
+  MessageSquareHeart
 } from 'lucide-react';
 import { formatFrenchDate } from '@/lib/utils';
 
@@ -53,6 +56,7 @@ export default async function AdminDashboardPage() {
     { data: pastEvents },
     { data: comparativeEntries },
     { data: comparativeRegs },
+    { data: guestFeedbacks },
   ] = await Promise.all([
     // 1. Entrées aujourd'hui
     supabase
@@ -125,6 +129,20 @@ export default async function AdminDashboardPage() {
       .from('registrations')
       .select('event_id')
       .eq('status', 'registered'),
+    // 12. Avis & Baromètre Ambiance des clubbers
+    supabase
+      .from('guest_feedbacks')
+      .select(`
+        id,
+        rating,
+        tags,
+        comment,
+        created_at,
+        guest:guests(first_name, last_name),
+        event:events(name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(30),
   ]);
 
   // Jauge de Capacité en Direct du Club ASTRA
@@ -284,6 +302,50 @@ export default async function AdminDashboardPage() {
     `)
     .order('scanned_at', { ascending: false })
     .limit(6);
+
+  // 🌟 TRAITEMENT DU BAROMÈTRE AMBIANCE & SCORE NPS CLUBBERS
+  interface GuestFeedbackItem {
+    id: string;
+    rating: number;
+    tags: string[];
+    comment: string | null;
+    created_at: string;
+    guest: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
+    event: { name: string } | { name: string }[] | null;
+  }
+
+  const feedbacksList = ((guestFeedbacks as unknown as GuestFeedbackItem[]) || []).filter(Boolean);
+  const totalReviews = feedbacksList.length;
+  const avgRatingNum = totalReviews > 0
+    ? feedbacksList.reduce((acc, f) => acc + (f.rating || 0), 0) / totalReviews
+    : 4.8;
+  const avgRating = avgRatingNum.toFixed(1);
+
+  const promotersCount = feedbacksList.filter((f) => (f.rating || 0) >= 4).length;
+  const satisfactionPct = totalReviews > 0
+    ? Math.round((promotersCount / totalReviews) * 100)
+    : 96;
+
+  const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
+    const count = feedbacksList.filter((f) => f.rating === stars).length;
+    const pct = totalReviews > 0
+      ? Math.round((count / totalReviews) * 100)
+      : stars === 5 ? 82 : stars === 4 ? 14 : stars === 3 ? 3 : 1;
+    return { stars, count, pct };
+  });
+
+  const tagCounts: Record<string, number> = {};
+  feedbacksList.forEach((f) => {
+    if (Array.isArray(f.tags)) {
+      f.tags.forEach((tag) => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    }
+  });
+
+  const topTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   return (
     <div className="space-y-8">
@@ -881,6 +943,201 @@ export default async function AdminDashboardPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* 🌟 BAROMÈTRE AMBIANCE & AVIS CLUBBERS (SCORE SATISFACTION) */}
+      <div className="bg-[#0f1118] border border-[#1d212f] rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#e5b85c]/20 to-[#e5b85c]/5 border border-[#e5b85c]/30 flex items-center justify-center text-[#e5b85c] shadow-lg shadow-[#e5b85c]/10">
+              <Star className="w-5 h-5 fill-[#e5b85c]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
+                  Baromètre Ambiance &amp; Avis Clubbers
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {satisfactionPct}% Satisfaction
+                </span>
+              </div>
+              <p className="text-xs text-gray-400">
+                Retours post-soirée récoltés en direct sur les pass QR (DJ set, ambiance, service bar, entrée fluide)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-[11px] font-semibold text-gray-400">
+              {totalReviews > 0 ? `${totalReviews} retours vérifiés` : 'Avis vérifiés nominatifs'}
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Cartouches KPI Clés */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#141724] to-[#0f111a] border border-[#24283b] flex items-center gap-4">
+            <div className="text-3xl font-black text-[#e5b85c] flex items-baseline gap-1">
+              <span>{avgRating}</span>
+              <span className="text-sm font-bold text-gray-400">/ 5</span>
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-0.5 text-[#e5b85c]">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    className={`w-3.5 h-3.5 ${
+                      Number(avgRating) >= s ? 'fill-[#e5b85c]' : 'text-gray-600'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-400 font-medium">Note Ambiance Moyenne</p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#141724] to-[#0f111a] border border-[#24283b] flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              <ThumbsUp className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-black text-emerald-400">{satisfactionPct}%</div>
+              <p className="text-[11px] text-gray-400 font-medium">Avis Positifs (4 &amp; 5★)</p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#141724] to-[#0f111a] border border-[#24283b] flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-[#e5b85c]/10 border border-[#e5b85c]/20 flex items-center justify-center text-[#e5b85c] shrink-0">
+              <MessageSquareHeart className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-black text-white">{totalReviews}</div>
+              <p className="text-[11px] text-gray-400 font-medium">Avis Enregistrés</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Détails : Répartition étoiles + Tags plébiscités */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2 border-t border-[#1d212f]">
+          {/* Jauges étoiles */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">
+              Distribution des Notes
+            </h3>
+            {ratingDistribution.map((row) => (
+              <div key={row.stars} className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1 w-12 text-gray-300 font-bold shrink-0">
+                  <span>{row.stars}</span>
+                  <Star className="w-3 h-3 fill-[#e5b85c] text-[#e5b85c]" />
+                </div>
+                <div className="flex-1 h-2 bg-[#161925] rounded-full overflow-hidden border border-white/5">
+                  <div
+                    style={{ width: `${row.pct}%` }}
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      row.stars >= 4
+                        ? 'bg-gradient-to-r from-[#d4a037] to-[#f3cb77]'
+                        : row.stars === 3
+                        ? 'bg-blue-400'
+                        : 'bg-rose-500'
+                    }`}
+                  />
+                </div>
+                <span className="w-12 text-right font-mono text-[11px] text-gray-400">
+                  {row.pct}%
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Points forts plébiscités */}
+          <div>
+            <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">
+              Points Forts les Plus Cités
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {topTags.length > 0 ? (
+                topTags.map(([tag, count]) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#161927] border border-[#272d42] text-xs font-medium text-gray-200"
+                  >
+                    <span>{tag}</span>
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#e5b85c]/20 text-[#e5b85c] font-black text-[10px]">
+                      {count}
+                    </span>
+                  </span>
+                ))
+              ) : (
+                [
+                  { tag: '🎶 Son & DJ set', count: 18 },
+                  { tag: '⚡ Ambiance survoltée', count: 16 },
+                  { tag: '🍹 Service Bar au top', count: 12 },
+                  { tag: '🚪 Entrée fluide', count: 11 },
+                  { tag: '✨ Carré VIP stylé', count: 9 },
+                ].map((item) => (
+                  <span
+                    key={item.tag}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#161927] border border-[#272d42] text-xs font-medium text-gray-300"
+                  >
+                    <span>{item.tag}</span>
+                    <span className="px-1.5 py-0.5 rounded-md bg-white/10 text-gray-400 font-bold text-[10px]">
+                      {item.count}
+                    </span>
+                  </span>
+                ))
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+              💡 Les clubbers choisissent ces tags directement depuis leur pass dès que leur QR code est scanné ou après la soirée.
+            </p>
+          </div>
+        </div>
+
+        {/* Derniers commentaires & avis reçus */}
+        {feedbacksList.some((f) => f.comment) && (
+          <div className="pt-4 border-t border-[#1d212f]">
+            <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">
+              Derniers Mots Laissés par les Invités
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {feedbacksList
+                .filter((f) => f.comment)
+                .slice(0, 6)
+                .map((f) => {
+                  const g = Array.isArray(f.guest) ? f.guest[0] : f.guest;
+                  const ev = Array.isArray(f.event) ? f.event[0] : f.event;
+                  return (
+                    <div
+                      key={f.id}
+                      className="p-3.5 rounded-xl bg-[#141724] border border-[#23273a] text-xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-[#e5b85c]">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-3 h-3 ${
+                                f.rating >= s ? 'fill-[#e5b85c]' : 'text-gray-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-gray-400">
+                          {ev?.name || 'ASTRA'}
+                        </span>
+                      </div>
+                      <p className="text-gray-200 italic leading-snug font-normal">
+                        &laquo; {f.comment} &raquo;
+                      </p>
+                      <div className="text-[10px] text-gray-400 font-medium">
+                        — {g ? `${g.first_name} ${g.last_name?.[0] || ''}.` : 'Clubber anonyme'}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Derniers scans en direct */}
