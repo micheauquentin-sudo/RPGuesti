@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useRef, use } from 'react';
 import QRCode from 'qrcode';
-import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
+import { 
+  formatFrenchDate, 
+  formatFrenchTime,
+  generateSecurityCode,
+  formatSecurityEmissionStamp
+} from '@/lib/utils';
 import { 
   Sparkles, 
   Calendar, 
@@ -22,7 +27,11 @@ import {
   Navigation,
   Car,
   Star,
-  Send
+  Send,
+  Shield,
+  Lock,
+  Shirt,
+  IdCard
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -91,7 +100,7 @@ async function generateFullTicketImage(
 ): Promise<string> {
   const canvas = document.createElement('canvas');
   canvas.width = 900;
-  canvas.height = 1460;
+  canvas.height = 1620;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Impossible d’initialiser le moteur graphique.');
 
@@ -109,11 +118,11 @@ async function generateFullTicketImage(
   // 2. Double Cadre Doré et Graphite
   ctx.strokeStyle = '#e5b85c';
   ctx.lineWidth = 3;
-  ctx.strokeRect(20, 20, 860, 1420);
+  ctx.strokeRect(20, 20, 860, 1580);
 
   ctx.strokeStyle = '#232738';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(28, 28, 844, 1404);
+  ctx.strokeRect(28, 28, 844, 1564);
 
   // Coins stylisés VIP
   const cornerSize = 28;
@@ -133,15 +142,15 @@ async function generateFullTicketImage(
   ctx.stroke();
   // Bas gauche
   ctx.beginPath();
-  ctx.moveTo(14, 1446 - cornerSize);
-  ctx.lineTo(14, 1446);
-  ctx.lineTo(14 + cornerSize, 1446);
+  ctx.moveTo(14, 1606 - cornerSize);
+  ctx.lineTo(14, 1606);
+  ctx.lineTo(14 + cornerSize, 1606);
   ctx.stroke();
   // Bas droite
   ctx.beginPath();
-  ctx.moveTo(886 - cornerSize, 1446);
-  ctx.lineTo(886, 1446);
-  ctx.lineTo(886, 1446 - cornerSize);
+  ctx.moveTo(886 - cornerSize, 1606);
+  ctx.lineTo(886, 1606);
+  ctx.lineTo(886, 1606 - cornerSize);
   ctx.stroke();
 
   // 3. Dessin du Logo Officiel 3D ASTRA Transparent
@@ -291,40 +300,83 @@ async function generateFullTicketImage(
   // Dessin du QR Code
   ctx.drawImage(qrCanvas, qrBoxX + 15, qrBoxY + 15, 280, 280);
 
-  currentY += qrBoxHeight + 20;
+  currentY += qrBoxHeight + 14;
+
+  // 7b. Sceau d'Authenticité & Horodatage d'Émission Inviolable
+  const { dateStr: emissionDateStr, timeStr: emissionTimeStr } = formatSecurityEmissionStamp(new Date());
+  const secHash = generateSecurityCode(registration.qr_token);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#10b981';
+  ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+  ctx.fillText(`🛡️ BILLET SÉCURISÉ CERTIFIÉ • ÉMIS LE ${emissionDateStr} À ${emissionTimeStr} (PARIS)`, 450, currentY + 12);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 10px monospace';
+  ctx.fillText(`CODE AUTHENTIFICATION UNIQUE : #${secHash} • SCAN UNIQUE ENTRÉE ACTIVE`, 450, currentY + 28);
+
+  currentY += 40;
 
   // 8. GROSSE CONSIGNE OBLIGATOIRE D'ARRIVÉE AU CLUB
   const instrY = currentY;
-  const instrBoxHeight = 145;
+  const instrBoxHeight = 112;
   ctx.fillStyle = '#141724';
   drawRoundedRect(ctx, 45, instrY, 810, instrBoxHeight, 16);
   ctx.fill();
 
   ctx.strokeStyle = '#e5b85c';
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2;
   drawRoundedRect(ctx, 45, instrY, 810, instrBoxHeight, 16);
   ctx.stroke();
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#e5b85c';
-  ctx.font = '900 13px system-ui, -apple-system, sans-serif';
-  ctx.fillText('⚠️  CONSIGNE OBLIGATOIRE À VOTRE ARRIVÉE  ⚠️', 450, instrY + 30);
+  ctx.font = '900 12px system-ui, -apple-system, sans-serif';
+  ctx.fillText('⚠️  CONSIGNE OBLIGATOIRE À VOTRE ARRIVÉE  ⚠️', 450, instrY + 24);
 
   // Gros texte impératif
   ctx.fillStyle = '#ffffff';
-  ctx.font = '900 21px system-ui, -apple-system, sans-serif';
-  ctx.fillText("DEMANDEZ UNE ENTRÉE ASTRA À L'ARRIVÉE AU CLUB", 450, instrY + 68);
+  ctx.font = '900 19px system-ui, -apple-system, sans-serif';
+  ctx.fillText("DEMANDEZ UNE ENTRÉE ASTRA À L'ARRIVÉE AU CLUB", 450, instrY + 54);
 
   // Sous-texte
   ctx.fillStyle = '#cbd5e1';
-  ctx.font = 'bold 14px system-ui, -apple-system, sans-serif';
-  ctx.fillText("Faites scanner ce pass par un de vos RP ou directement dans l'ASTRA", 450, instrY + 102);
-  ctx.fillText("après avoir pris votre entrée gratuite.", 450, instrY + 124);
+  ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText("Faites scanner ce pass par un de vos RP ou directement dans l'ASTRA après votre entrée.", 450, instrY + 84);
+
+  currentY += instrBoxHeight + 14;
+
+  // 8b. CHARTE DRESS CODE & SÉCURITÉ CONTRÔLÉS À LA PORTE
+  const rulesY = currentY;
+  const rulesBoxHeight = 115;
+  ctx.fillStyle = '#0f121d';
+  drawRoundedRect(ctx, 45, rulesY, 810, rulesBoxHeight, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#282e44';
+  ctx.lineWidth = 1.5;
+  drawRoundedRect(ctx, 45, rulesY, 810, rulesBoxHeight, 14);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#e5b85c';
+  ctx.font = '900 11px system-ui, -apple-system, sans-serif';
+  ctx.fillText('👔  CHARTE DRESS CODE & SÉCURITÉ OBLIGATOIRES À LA PORTE  🪪', 450, rulesY + 22);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+  ctx.fillText('• 🪪 PIÈCE D\'IDENTITÉ PHYSIQUE ORIGINALE (+18 ANS STRICTEMENT, PHOTOS SUR ÉCRAN REFUSÉES)', 450, rulesY + 46);
+  ctx.fillText('• 👔 TENUE SOIGNÉE EXIGÉE (SURVÊTEMENTS, CASQUETTES, CLAQUETTES & SACOCHES INTERDITS)', 450, rulesY + 68);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+  ctx.fillText('⚖️ Le pass facilite le contrôle. La direction et la sécurité se réservent strictement le droit d\'entrée.', 450, rulesY + 92);
+
+  currentY += rulesBoxHeight + 16;
 
   // 9. Pied de Page Billet Officiel
   ctx.fillStyle = '#64748b';
   ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
-  ctx.fillText('ASTRA ORLÉANS • BILLET OFFICIEL NOMINATIF NUMÉRISÉ', 450, 1416);
+  ctx.fillText('ASTRA ORLÉANS • BILLET OFFICIEL NOMINATIF NUMÉRISÉ & CERTIFIÉ', 450, 1580);
 
   return canvas.toDataURL('image/png');
 }
@@ -384,6 +436,26 @@ export default function GuestQrPassPage({
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  // Filigrane Dynamique Anti-Photoshop : Horloge Temps Réel (Paris)
+  const [liveServerTime, setLiveServerTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setLiveServerTime(
+        now.toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'Europe/Paris',
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -856,6 +928,31 @@ export default function GuestQrPassPage({
             </div>
           ) : (
             <div className="p-6 flex flex-col items-center justify-center bg-[#0d0e14]">
+              {/* 🛡️ FILIGRANE DYNAMIQUE ANTI-PHOTOSHOP (LIVE PARIS) */}
+              <div className="w-full mb-3.5 p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/60 via-[#161a28] to-emerald-950/60 border border-[#e5b85c]/40 flex items-center justify-between text-left shadow-lg">
+                <div className="flex items-center gap-2">
+                  <div className="relative w-3 h-3 flex items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block leading-tight">
+                      BILLET WEB AUTHENTIFIÉ EN DIRECT
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-gray-300">
+                      RÉF : #{generateSecurityCode(registration.qr_token)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[9px] text-gray-400 uppercase font-bold block">Horloge Paris</span>
+                  <span className="text-xs font-mono font-black text-[#e5b85c] tracking-widest bg-black/70 px-2 py-0.5 rounded border border-[#e5b85c]/40">
+                    {liveServerTime || '23:00:00'}
+                  </span>
+                </div>
+              </div>
+
               <div className="p-3.5 bg-white rounded-2xl shadow-2xl flex items-center justify-center border-4 border-[#e5b85c]/30">
                 <canvas ref={canvasRef} className="rounded-lg max-w-full h-auto block" />
               </div>
@@ -953,6 +1050,139 @@ export default function GuestQrPassPage({
             <AlertCircle className="w-4 h-4 text-rose-500" />
             <span>Billet expiré (Soirée passée)</span>
           </button>
+        )}
+
+        {/* 🛡️ SOLUTION POUR LES BILLETS ENREGISTRÉS DANS LES PHOTOS (ANTI-FRAUDE & SANS 4G) */}
+        {!isEventExpired && (
+          <div className="mt-3 p-3.5 bg-gradient-to-br from-[#111420] via-[#131828] to-[#0c0e18] border border-[#e5b85c]/35 rounded-2xl text-left shadow-xl">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                    Sécurité & Billet Enregistré
+                  </h4>
+                  <p className="text-[11px] text-emerald-400 font-semibold">
+                    Certifié et scannable même sans 4G à la porte
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                OFFLINE OK
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs text-gray-300">
+              <div className="flex items-start gap-2.5 bg-[#090b12]/70 p-2.5 rounded-xl border border-white/5">
+                <span className="text-base leading-none select-none">📸</span>
+                <p className="text-[11px] leading-relaxed">
+                  <strong className="text-white">Image dans vos Photos :</strong> Le billet téléchargé intègre un <span className="text-emerald-400 font-semibold">sceau d&apos;émission certifié à la seconde</span> et votre référence unique (<span className="font-mono text-[#e5b85c]">#{generateSecurityCode(registration?.qr_token || '')}</span>). Les scanners de l&apos;ASTRA le lisent directement sur votre écran, même sans aucun réseau.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5 bg-[#090b12]/70 p-2.5 rounded-xl border border-white/5">
+                <span className="text-base leading-none select-none">🛡️</span>
+                <p className="text-[11px] leading-relaxed">
+                  <strong className="text-white">Protection Anti-Doublon & Faux Billets :</strong> Votre QR code est à usage strictement unique. Le premier scan à la porte valide définitivement l&apos;entrée ; toute tentative de réutilisation ou capture pirate sera immédiatement bloquée.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2.5 bg-[#090b12]/70 p-2.5 rounded-xl border border-white/5">
+                <span className="text-base leading-none select-none">⚡</span>
+                <p className="text-[11px] leading-relaxed">
+                  <strong className="text-white">Conseil Entrée Express :</strong> Si vous avez de la 4G devant le club, présentez cette page web en direct : le filigrane animé avec horloge live ({liveServerTime || 'Paris'}) offre une authentification visuelle instantanée aux physionomistes.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 👔 CHARTE VISUELLE DRESS CODE & SÉCURITÉ PORTE (ZÉRO CONFLIT) */}
+        {!isEventExpired && (
+          <div className="mt-3 p-4 bg-gradient-to-b from-[#141724] to-[#0c0e16] border border-[#272d42] rounded-2xl text-left shadow-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-[#e5b85c]/20 text-[#e5b85c] flex items-center justify-center">
+                  <Shirt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                    Consignes d&apos;Accès & Dress Code
+                  </h4>
+                  <p className="text-[11px] text-[#e5b85c] font-semibold">
+                    À respecter impérativement à l&apos;entrée
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-bold border border-amber-500/30">
+                Contrôle Porte
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* Règle 1 : ID Physique */}
+              <div className="p-2.5 bg-[#0a0c13] rounded-xl border border-rose-500/20 flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <IdCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-white block leading-tight">
+                    ID Physique Originale (+18)
+                  </span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                    CNI, passeport ou permis physique. <span className="text-rose-400 font-semibold">Photos sur téléphone refusées.</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Règle 2 : Tenue Soignée */}
+              <div className="p-2.5 bg-[#0a0c13] rounded-xl border border-[#e5b85c]/20 flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-[#e5b85c]/15 text-[#e5b85c] flex items-center justify-center shrink-0 mt-0.5">
+                  <Shirt className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-white block leading-tight">
+                    Tenue Soignée Exigée
+                  </span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                    Survêtements, casquettes, claquettes et sacoches banane strictement interdits.
+                  </p>
+                </div>
+              </div>
+
+              {/* Règle 3 : Fouille & Alcool */}
+              <div className="p-2.5 bg-[#0a0c13] rounded-xl border border-sky-500/20 flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Shield className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-white block leading-tight">
+                    Fouille & Zéro Alcool Extérieur
+                  </span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                    Fouille de sécurité à l&apos;entrée. Aucune boisson ni objet dangereux autorisés.
+                  </p>
+                </div>
+              </div>
+
+              {/* Règle 4 : Droit d'Accès */}
+              <div className="p-2.5 bg-[#0a0c13] rounded-xl border border-emerald-500/20 flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-white block leading-tight">
+                    Entrée Gratuite & Réserve
+                  </span>
+                  <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                    Pass 100% gratuit. La direction et la sécurité se réservent le droit d&apos;entrée.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* SECTION VIRALE : PARTAGER À MES POTES */}

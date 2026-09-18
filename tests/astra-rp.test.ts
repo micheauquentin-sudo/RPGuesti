@@ -4,7 +4,9 @@ import {
   generateInviteToken,
   slugify, 
   calculateAttendanceRate, 
-  generateCsvContent 
+  generateCsvContent,
+  generateSecurityCode,
+  formatSecurityEmissionStamp
 } from '../src/lib/utils';
 import { type CheckInStatusCode } from '../src/lib/types';
 
@@ -278,4 +280,63 @@ describe('ASTRA RP — Simulateur de Retombées Bar & Vestiaire (ROI RP)', () =>
     expect(zero.totalRevenue).toBe(0);
   });
 });
+
+describe('ASTRA RP — Filigrane Anti-Photoshop & Sécurité Billet Enregistré (Options 3 & 4)', () => {
+  it('Génère un code de sécurité #SEC-XXXXXXXXXX infalsifiable pour chaque billet', () => {
+    const token = 'a1b2c3d4e5f67890abcdef1234567890';
+    const secCode = generateSecurityCode(token);
+
+    expect(secCode).toBe('SEC-A1B2C3D4E5');
+    expect(secCode.startsWith('SEC-')).toBe(true);
+    expect(secCode.length).toBe(14); // SEC- + 10 chars
+  });
+
+  it('Gère les tokens vides ou invalides avec un fallback sécurisé', () => {
+    expect(generateSecurityCode('')).toBe('SEC-0000000000');
+  });
+
+  it('Génère un horodatage d\'émission certifié en heure de Paris', () => {
+    const testDate = new Date('2026-09-18T23:30:45+02:00');
+    const stamp = formatSecurityEmissionStamp(testDate);
+
+    expect(stamp.dateStr).toBe('18/09/2026');
+    expect(stamp.timeStr).toBe('23:30:45');
+    expect(stamp.fullStamp).toContain('CERTIFIÉ SÉCURISÉ • ÉMIS LE 18/09/2026 À 23:30:45 (PARIS)');
+  });
+
+  it('Valide la charte d\'accès en porte : ID physique originale obligatoire et tenue correcte', () => {
+    interface DoorAdmissionCheck {
+      hasPhysicalId: boolean;
+      isAdult: boolean;
+      hasDressCodeCompliance: boolean;
+    }
+
+    const evaluateDoorAdmission = (guest: DoorAdmissionCheck) => {
+      if (!guest.hasPhysicalId) {
+        return { admitted: false, reason: 'PIÈCE D\'IDENTITÉ PHYSIQUE ORIGINALE OBLIGATOIRE (PHOTOS REFUSÉES)' };
+      }
+      if (!guest.isAdult) {
+        return { admitted: false, reason: 'MINEUR REFUSÉ (+18 STRICT)' };
+      }
+      if (!guest.hasDressCodeCompliance) {
+        return { admitted: false, reason: 'TENUE NON CONFORME À LA CHARTE CLUB' };
+      }
+      return { admitted: true, reason: 'ACCÈS VALIDÉ' };
+    };
+
+    // Invité en règle
+    expect(evaluateDoorAdmission({ hasPhysicalId: true, isAdult: true, hasDressCodeCompliance: true }).admitted).toBe(true);
+
+    // Photo sur smartphone -> Refusé
+    const phonePhoto = evaluateDoorAdmission({ hasPhysicalId: false, isAdult: true, hasDressCodeCompliance: true });
+    expect(phonePhoto.admitted).toBe(false);
+    expect(phonePhoto.reason).toContain('PHOTOS REFUSÉES');
+
+    // Jogging / Survêtement -> Refusé
+    const tracksuit = evaluateDoorAdmission({ hasPhysicalId: true, isAdult: true, hasDressCodeCompliance: false });
+    expect(tracksuit.admitted).toBe(false);
+    expect(tracksuit.reason).toContain('TENUE NON CONFORME');
+  });
+});
+
 

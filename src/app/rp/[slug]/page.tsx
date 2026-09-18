@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { type ClubEvent, type Promoter } from '@/lib/types';
 import { formatFrenchDate, formatFrenchTime } from '@/lib/utils';
-import { Sparkles, Calendar, Clock, ArrowRight, AlertCircle, CheckCircle2, UserCheck } from 'lucide-react';
+import { Sparkles, Calendar, Clock, ArrowRight, AlertCircle, CheckCircle2, UserCheck, Shield, Shirt, IdCard } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/InstagramIcon';
 
 type PublicPromoter = Pick<Promoter, 'id' | 'first_name' | 'last_name' | 'slug' | 'avatar_url' | 'instagram_handle' | 'is_active'>;
@@ -367,6 +367,29 @@ export default function PromoterPublicPage({
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* RAPPEL CHARTE DRESS CODE & ENTRÉE AVANT VALIDATION */}
+                <div className="mt-3 p-3 bg-[#0d0f17] border border-[#232738] rounded-xl text-left">
+                  <div className="flex items-center gap-1.5 text-[#e5b85c] mb-1.5">
+                    <Shield className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-black uppercase tracking-wider">
+                      Charte d&apos;Entrée & Dress Code ASTRA
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-gray-300">
+                    <p className="flex items-center gap-1.5">
+                      <IdCard className="w-3 h-3 text-rose-400 shrink-0" />
+                      <span><strong className="text-white">Pièce d&apos;identité physique (+18)</strong> originale obligatoire (photos sur téléphone refusées).</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <Shirt className="w-3 h-3 text-[#e5b85c] shrink-0" />
+                      <span><strong className="text-white">Tenue soignée exigée</strong> (survêtements, casquettes & sacoches interdits).</span>
+                    </p>
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-1.5 italic">
+                    En réservant, vous attestez avoir 18 ans révolus et vous conformer au règlement de l&apos;établissement.
+                  </p>
                 </div>
 
                 <button

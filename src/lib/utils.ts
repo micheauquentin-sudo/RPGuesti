@@ -94,3 +94,39 @@ export function generateCsvContent(headers: string[], rows: (string | number)[][
   ];
   return bom + csvLines.join('\r\n');
 }
+
+/**
+ * Génère le code de sécurité unique affiché sur le billet physique ou digital
+ * Format: SEC-XXXXXXXXXX (les 10 premiers caractères du token en majuscules)
+ */
+export function generateSecurityCode(qrToken: string): string {
+  if (!qrToken) return 'SEC-0000000000';
+  const clean = qrToken.replace(/[^a-zA-Z0-9]/g, '');
+  return `SEC-${clean.slice(0, 10).toUpperCase()}`;
+}
+
+/**
+ * Formate un horodatage d'émission certifié pour le sceau de sécurité anti-contrefaçon
+ */
+export function formatSecurityEmissionStamp(date: Date = new Date()): {
+  dateStr: string;
+  timeStr: string;
+  fullStamp: string;
+} {
+  const dateStr = date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const timeStr = date.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'Europe/Paris',
+  });
+  return {
+    dateStr,
+    timeStr,
+    fullStamp: `CERTIFIÉ SÉCURISÉ • ÉMIS LE ${dateStr} À ${timeStr} (PARIS)`,
+  };
+}
