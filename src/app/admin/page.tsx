@@ -18,10 +18,13 @@ import {
   Activity,
   Star,
   ThumbsUp,
-  MessageSquareHeart
+  MessageSquareHeart,
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
 import { formatFrenchDate } from '@/lib/utils';
 import BarRevenueSimulator from '@/components/admin/BarRevenueSimulator';
+import EventGuestlistManager, { GuestRegistrationItem } from '@/components/admin/EventGuestlistManager';
 
 export const revalidate = 0; // Données temps réel
 
@@ -40,17 +43,30 @@ export default async function AdminDashboardPage() {
     }
   );
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Fuseau horaire Paris (Europe/Paris)
+  const now = new Date();
+  const todayParisStr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(now);
+  const currentHourParis = parseInt(
+    new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', hour12: false, timeZone: 'Europe/Paris' }).format(now),
+    10
+  );
+
+  // En boîte de nuit, entre 00h00 et 08h00 du matin, la soirée de la nuit en cours est celle qui a débuté la veille
+  let activeNightDate = todayParisStr;
+  if (currentHourParis < 8) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 1);
+    activeNightDate = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(d);
+  }
+
   const currentYear = new Date().getFullYear();
   const yearStart = `${currentYear}-01-01T00:00:00Z`;
 
   // Toutes les requêtes en parallèle pour un dashboard ultra-réactif
   const [
-    { count: entriesToday },
-    { count: registrationsToday },
     { count: activePromoters, data: activePromotersList },
     { count: entriesThisYear },
-    { data: nextEvent },
+    { data: upcomingEvents },
     { data: yearlyEntries },
     { data: chartEntriesList },
     { data: regGuestList },
@@ -59,37 +75,26 @@ export default async function AdminDashboardPage() {
     { data: comparativeRegs },
     { data: guestFeedbacks },
   ] = await Promise.all([
-    // 1. Entrées aujourd'hui
-    supabase
-      .from('entries')
-      .select('*', { count: 'exact', head: true })
-      .gte('scanned_at', `${todayStr}T00:00:00Z`),
-    // 2. Inscriptions aujourd'hui
-    supabase
-      .from('registrations')
-      .select('*', { count: 'exact', head: true })
-      .gte('registered_at', `${todayStr}T00:00:00Z`),
-    // 3. RP Actifs
+    // 1. RP Actifs
     supabase
       .from('promoters')
       .select('id, first_name, last_name, pseudo, slug', { count: 'exact' })
       .eq('is_active', true),
-    // 4. Entrées cette année (Total Concours)
+    // 2. Entrées cette année (Total Concours)
     supabase
       .from('entries')
       .select('*', { count: 'exact', head: true })
       .gte('scanned_at', yearStart)
       .eq('status', 'valid'),
-    // 5. Prochaine soirée
+    // 3. Soirées récentes ou futures
     supabase
       .from('events')
       .select('*')
       .eq('status', 'published')
-      .gte('event_date', todayStr)
+      .gte('event_date', activeNightDate)
       .order('event_date', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-    // 6. Top RP de l'année
+      .limit(5),
+    // 4. Top RP de l'année
     supabase
       .from('entries')
       .select(`
@@ -98,25 +103,25 @@ export default async function AdminDashboardPage() {
       `)
       .gte('scanned_at', yearStart)
       .in('status', ['valid', 'VALID']),
-    // 7. Entrées pour la courbe d'affluence heure par heure
+    // 5. Entrées pour la courbe d'affluence heure par heure
     supabase
       .from('entries')
       .select('scanned_at')
       .in('status', ['valid', 'VALID'])
       .order('scanned_at', { ascending: false })
       .limit(500),
-    // 8. Inscriptions pour le calcul de rétention
+    // 6. Inscriptions pour le calcul de rétention
     supabase
       .from('registrations')
       .select('guest_id')
       .limit(1000),
-    // 9. Dernières soirées pour le comparateur
+    // 7. Dernières soirées pour le comparateur
     supabase
       .from('events')
       .select('id, name, event_date, status')
       .order('event_date', { ascending: false })
       .limit(6),
-    // 10. Toutes les entrées par événement pour analyse comparative
+    // 8. Toutes les entrées par événement pour analyse comparative
     supabase
       .from('entries')
       .select(`
@@ -125,12 +130,12 @@ export default async function AdminDashboardPage() {
         promoter:promoters(first_name, last_name, pseudo)
       `)
       .in('status', ['valid', 'VALID']),
-    // 11. Toutes les inscriptions par événement pour analyse comparative
+    // 9. Toutes les inscriptions par événement pour analyse comparative
     supabase
       .from('registrations')
       .select('event_id')
       .eq('status', 'registered'),
-    // 12. Avis & Baromètre Ambiance des clubbers
+    // 10. Avis & Baromètre Ambiance des clubbers
     supabase
       .from('guest_feedbacks')
       .select(`
@@ -146,11 +151,80 @@ export default async function AdminDashboardPage() {
       .limit(30),
   ]);
 
+  // Déterminer la soirée de ce soir / en cours
+  const activeEvent = (upcomingEvents || []).find(
+    (ev) => ev.event_date === todayParisStr || ev.event_date === activeNightDate
+  ) || null;
+
+  // Prochaine soirée programmée (soit aujourd'hui soit date future)
+  const nextEvent = (upcomingEvents || []).find((ev) => ev.event_date >= todayParisStr) || upcomingEvents?.[0] || null;
+  const isTonightEvent = Boolean(activeEvent);
+
+  // Charger les données de la soirée active si une soirée a lieu ce soir
+  let tonightRegistrationsData: any[] = [];
+  let tonightEntriesData: any[] = [];
+
+  if (activeEvent) {
+    const [regRes, entRes] = await Promise.all([
+      supabase
+        .from('registrations')
+        .select(`
+          id,
+          qr_token,
+          status,
+          registered_at,
+          is_duo,
+          companion_name,
+          guest:guests(id, first_name, last_name, phone),
+          promoter:promoters(id, first_name, last_name, pseudo)
+        `)
+        .eq('event_id', activeEvent.id)
+        .neq('status', 'cancelled')
+        .order('registered_at', { ascending: false }),
+      supabase
+        .from('entries')
+        .select('id, registration_id, guest_id, scanned_at, status')
+        .eq('event_id', activeEvent.id)
+        .in('status', ['valid', 'VALID']),
+    ]);
+    tonightRegistrationsData = regRes.data || [];
+    tonightEntriesData = entRes.data || [];
+  }
+
   // Jauge de Capacité en Direct du Club ASTRA
   const MAX_CLUB_CAPACITY = 600; // Capacité maximale ERP autorisée
-  const entriesCountToday = entriesToday ?? 0;
+  // Entrées ce soir : basées sur la soirée active (remis à 0 si pas de soirée)
+  const entriesCountToday = tonightEntriesData.length;
+  // Total des inscrits à cette soirée (11 inscrits au lieu de 0)
+  const registrationsCountToday = tonightRegistrationsData.length;
   const capacityFillPercent = Math.min(100, Math.round((entriesCountToday / MAX_CLUB_CAPACITY) * 100));
   const remainingCapacity = Math.max(0, MAX_CLUB_CAPACITY - entriesCountToday);
+  const tonightAttendanceRate = registrationsCountToday > 0 ? Math.round((entriesCountToday / registrationsCountToday) * 100) : 0;
+
+  // Liste formatée des inscrits pour les salariés et l'émargement porte
+  const guestlistItems: GuestRegistrationItem[] = tonightRegistrationsData.map((reg) => {
+    const g = Array.isArray(reg.guest) ? reg.guest[0] : reg.guest;
+    const p = Array.isArray(reg.promoter) ? reg.promoter[0] : reg.promoter;
+    const entry = tonightEntriesData.find((e) => e.registration_id === reg.id);
+    const promoterDisplay = p?.pseudo?.trim() 
+      ? p.pseudo.trim() 
+      : (p ? `${p.first_name} ${p.last_name}`.trim() : 'Club ASTRA');
+
+    return {
+      id: reg.id,
+      qr_token: reg.qr_token,
+      guest_name: `${g?.first_name || ''} ${g?.last_name || ''}`.trim() || 'Invité',
+      first_name: g?.first_name || 'Invité',
+      last_name: g?.last_name || '',
+      phone: g?.phone || null,
+      registered_at: reg.registered_at,
+      promoter_name: promoterDisplay,
+      is_duo: Boolean(reg.is_duo || reg.companion_name),
+      companion_name: reg.companion_name || null,
+      is_checked_in: Boolean(entry),
+      scanned_at: entry?.scanned_at || null,
+    };
+  });
 
   // Traitement du Comparateur de Soirées
   const comparativeEntriesList = comparativeEntries || [];
@@ -195,7 +269,7 @@ export default async function AdminDashboardPage() {
     ? Math.round(pastEventsWithScans.reduce((sum, e) => sum + e.attendanceRate, 0) / pastEventsWithScans.length)
     : 62; // 62% ratio de venue standard en clubbing
 
-  const regsToday = registrationsToday ?? 0;
+  const regsToday = registrationsCountToday;
   const baselineRate = avgHistoricalAttendanceRate / 100;
   const rawMin = Math.round(regsToday * Math.max(0.35, baselineRate * 0.8));
   const rawMax = Math.round(regsToday * Math.min(0.95, baselineRate * 1.25) + (regsToday === 0 ? 40 : 0));
@@ -330,19 +404,19 @@ export default async function AdminDashboardPage() {
   const totalReviews = feedbacksList.length;
   const avgRatingNum = totalReviews > 0
     ? feedbacksList.reduce((acc, f) => acc + (f.rating || 0), 0) / totalReviews
-    : 4.8;
-  const avgRating = avgRatingNum.toFixed(1);
+    : 0;
+  const avgRating = totalReviews > 0 ? avgRatingNum.toFixed(1) : '—';
 
   const promotersCount = feedbacksList.filter((f) => (f.rating || 0) >= 4).length;
   const satisfactionPct = totalReviews > 0
     ? Math.round((promotersCount / totalReviews) * 100)
-    : 96;
+    : 0;
 
   const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
     const count = feedbacksList.filter((f) => f.rating === stars).length;
     const pct = totalReviews > 0
       ? Math.round((count / totalReviews) * 100)
-      : stars === 5 ? 82 : stars === 4 ? 14 : stars === 3 ? 3 : 1;
+      : 0;
     return { stars, count, pct };
   });
 
@@ -361,26 +435,35 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header avec action rapide Scanner */}
+      {/* Header avec statut dynamique de la soirée et action rapide Scanner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider">
               Dashboard Opérationnel
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold animate-pulse">
-              LIVE
-            </span>
+            {isTonightEvent ? (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>SOIRÉE CE SOIR : {activeEvent?.name?.toUpperCase()}</span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-zinc-800 border border-white/10 text-zinc-400 text-xs font-semibold">
+                ⚪ AUCUNE SOIRÉE CE SOIR • Compteur à 0
+              </span>
+            )}
           </div>
           <p className="text-gray-400 text-xs sm:text-sm mt-1">
-            Contrôle en direct du club ASTRA Orléans • Concours Annuel RP {currentYear}
+            {isTonightEvent 
+              ? `Pointage en direct de la soirée • Capacité ERP 600 personnes` 
+              : `Aucune soirée en cours • Les compteurs se remettent à zéro entre chaque soirée`}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link
             href="/scan"
-            className="py-2.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:brightness-110 text-black font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all"
+            className="py-2.5 px-4 bg-gradient-to-r from-[#e5b85c] to-[#d4a037] hover:brightness-110 text-black font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-lg transition-all active:scale-95"
           >
             <QrCode className="w-4 h-4" />
             <span>Ouvrir Scanner Entrée</span>
@@ -388,15 +471,15 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* 4 Cartes Statistiques Clés */}
+      {/* 4 Cartes Statistiques Clés Centrées Soirée */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Entrées ce soir avec JAUGE DE CAPACITÉ EN DIRECT */}
-        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+        {/* 1. Entrées soirée avec JAUGE DE CAPACITÉ EN DIRECT */}
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-xl">
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                <span>Entrées Ce Soir</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Entrées Soirée</span>
+                {isTonightEvent && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />}
               </span>
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                 <CheckSquare className="w-4 h-4" />
@@ -411,14 +494,14 @@ export default async function AdminDashboardPage() {
               </span>
             </div>
             <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1">
-              <span className="text-emerald-400 font-semibold">Scannés en direct</span> à la porte
+              <span className="text-emerald-400 font-semibold">{entriesCountToday} personne{entriesCountToday > 1 ? 's' : ''}</span> entrée{entriesCountToday > 1 ? 's' : ''}
             </p>
           </div>
 
           <div className="mt-3 pt-3 border-t border-[#1e2232]">
             <div className="flex items-center justify-between text-[10px] font-extrabold mb-1">
               <span className={capacityFillPercent >= 85 ? 'text-rose-400' : capacityFillPercent >= 60 ? 'text-amber-400' : 'text-emerald-400'}>
-                {capacityFillPercent >= 85 ? '⚡ RUSH / SEUIL CRITIQUE' : capacityFillPercent >= 60 ? '🔥 FORTE AFFLUENCE' : '🟢 FLUIDE & CONFORT'}
+                {capacityFillPercent >= 85 ? '⚡ RUSH / SEUIL CRITIQUE' : capacityFillPercent >= 60 ? '🔥 FORTE AFFLUENCE' : '🟢 JAUGE CLUB'}
               </span>
               <span className="text-gray-400">{capacityFillPercent}%</span>
             </div>
@@ -435,65 +518,126 @@ export default async function AdminDashboardPage() {
               />
             </div>
             <p className="text-[10px] text-gray-500 mt-1">
-              {remainingCapacity > 0 ? `${remainingCapacity} places encore disponibles` : 'Capacité maximale atteinte'}
+              {remainingCapacity > 0 ? `${remainingCapacity} places encore dispo` : 'Capacité maximale atteinte'}
             </p>
           </div>
         </div>
 
-        {/* Inscriptions ce soir */}
-        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Inscriptions Jour
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-              <TrendingUp className="w-4 h-4" />
+        {/* 2. Inscriptions de la soirée */}
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                Inscrits Soirée
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <Users className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-3xl font-black text-white">
+              {registrationsCountToday}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Pass réservés pour {isTonightEvent ? activeEvent?.name : 'cette soirée'}
+            </p>
           </div>
-          <div className="text-3xl font-black text-white">
-            {registrationsToday ?? 0}
+
+          <div className="mt-3 pt-3 border-t border-[#1e2232]">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Taux de présence :</span>
+              <span className="font-bold text-indigo-400">{tonightAttendanceRate}%</span>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              {entriesCountToday} arrivés sur {registrationsCountToday} attendus
+            </p>
           </div>
-          <p className="text-[11px] text-gray-500 mt-1">
-            Pass générés via les liens RP
-          </p>
         </div>
 
-        {/* RP Actifs */}
-        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-5 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              RP Actifs
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <Users className="w-4 h-4" />
+        {/* 3. Retombées Caisse Bar & Vestiaire (Arrivées réelles) */}
+        <div className="bg-[#0f1118] border border-emerald-500/20 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Encaissé Réel (Bar/Vest.)
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <TrendingUp className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-3xl font-black text-emerald-400">
+              {entriesCountToday * 14} €
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              Sur les <strong>{entriesCountToday}</strong> clubbers entrés
+            </p>
           </div>
-          <div className="text-3xl font-black text-white">
-            {activePromoters ?? 0}
+
+          <div className="mt-3 pt-3 border-t border-[#1e2232]">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">Potentiel total :</span>
+              <span className="font-bold text-white">{registrationsCountToday * 14} €</span>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              Vestiaire (2€) + Bar moyen (12€)
+            </p>
           </div>
-          <p className="text-[11px] text-gray-500 mt-1">
-            Promoteurs avec liens permanents
-          </p>
         </div>
 
-        {/* Entrées Année Concours */}
-        <div className="bg-[#0f1118] border border-[#e5b85c]/30 rounded-2xl p-5 relative overflow-hidden bg-gradient-to-br from-[#12141e] to-[#0f1118]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#e5b85c]">
-              Total Annuel {currentYear}
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-[#e5b85c]/10 border border-[#e5b85c]/20 flex items-center justify-center text-[#e5b85c]">
-              <Trophy className="w-4 h-4" />
+        {/* 4. Total Annuel Concours RP */}
+        <div className="bg-[#0f1118] border border-[#e5b85c]/30 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-xl bg-gradient-to-br from-[#12141e] to-[#0f1118]">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#e5b85c]">
+                Concours {currentYear}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-[#e5b85c]/10 border border-[#e5b85c]/20 flex items-center justify-center text-[#e5b85c]">
+                <Trophy className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-3xl font-black text-white">
+              {entriesThisYear ?? 0}
+            </div>
+            <p className="text-[11px] text-[#e5b85c]/80 mt-1">
+              Entrées validées cette saison
+            </p>
           </div>
-          <div className="text-3xl font-black text-white">
-            {entriesThisYear ?? 0}
+
+          <div className="mt-3 pt-3 border-t border-[#1e2232]">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-zinc-400">RP actifs :</span>
+              <span className="font-bold text-white">{activePromoters ?? 0}</span>
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              Classement en direct disponible
+            </p>
           </div>
-          <p className="text-[11px] text-[#e5b85c]/80 mt-1">
-            Entrées réelles comptabilisées
-          </p>
         </div>
       </div>
+
+      {/* 👥 LISTING DES INSCRITS DE LA SOIRÉE POUR LES SALARIÉS DU CLUB (ENTRÉES GRATUITES & ÉMARGEMENT) */}
+      {isTonightEvent && activeEvent ? (
+        <EventGuestlistManager
+          eventId={activeEvent.id}
+          eventName={activeEvent.name}
+          eventDate={activeEvent.event_date}
+          initialGuests={guestlistItems}
+          maxCapacity={MAX_CLUB_CAPACITY}
+        />
+      ) : (
+        <div className="bg-[#0f1118] border border-[#1d212f] rounded-2xl p-6 text-center">
+          <Calendar className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+          <h3 className="text-sm font-bold text-white">Aucune soirée active ce soir</h3>
+          <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
+            Le compteur d&apos;entrées a été remis à zéro après la dernière soirée. Dès qu&apos;une soirée a lieu, le listing d&apos;émargement des salariés avec validation manuelle et le compteur en direct s&apos;affichent ici.
+          </p>
+          {nextEvent && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-[#e5b85c]">
+              <span>Prochaine date programmée :</span>
+              <strong className="text-white">{nextEvent.name} ({formatFrenchDate(nextEvent.event_date)})</strong>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* AFFLUENCE PRÉDICTIVE & RECOMMANDATION STAFF (INTELLIGENCE CLUB) */}
       <div className="bg-[#0f1118] border border-[#232738] rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
@@ -990,7 +1134,7 @@ export default async function AdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-[#141724] to-[#0f111a] border border-[#24283b] flex items-center gap-4">
             <div className="text-3xl font-black text-[#e5b85c] flex items-baseline gap-1">
-              <span>{avgRating}</span>
+              <span>{totalReviews > 0 ? avgRating : '—'}</span>
               <span className="text-sm font-bold text-gray-400">/ 5</span>
             </div>
             <div className="space-y-0.5">
@@ -999,12 +1143,14 @@ export default async function AdminDashboardPage() {
                   <Star
                     key={s}
                     className={`w-3.5 h-3.5 ${
-                      Number(avgRating) >= s ? 'fill-[#e5b85c]' : 'text-gray-600'
+                      totalReviews > 0 && Number(avgRating) >= s ? 'fill-[#e5b85c]' : 'text-gray-600'
                     }`}
                   />
                 ))}
               </div>
-              <p className="text-[11px] text-gray-400 font-medium">Note Ambiance Moyenne</p>
+              <p className="text-[11px] text-gray-400 font-medium">
+                {totalReviews > 0 ? 'Note Ambiance Moyenne' : 'En attente des premiers avis'}
+              </p>
             </div>
           </div>
 
@@ -1013,8 +1159,12 @@ export default async function AdminDashboardPage() {
               <ThumbsUp className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-2xl font-black text-emerald-400">{satisfactionPct}%</div>
-              <p className="text-[11px] text-gray-400 font-medium">Avis Positifs (4 &amp; 5★)</p>
+              <div className="text-2xl font-black text-emerald-400">
+                {totalReviews > 0 ? `${satisfactionPct}%` : '—'}
+              </div>
+              <p className="text-[11px] text-gray-400 font-medium">
+                {totalReviews > 0 ? 'Avis Positifs (4 & 5★)' : 'Score Satisfaction'}
+              </p>
             </div>
           </div>
 
@@ -1036,29 +1186,36 @@ export default async function AdminDashboardPage() {
             <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">
               Distribution des Notes
             </h3>
-            {ratingDistribution.map((row) => (
-              <div key={row.stars} className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1 w-12 text-gray-300 font-bold shrink-0">
-                  <span>{row.stars}</span>
-                  <Star className="w-3 h-3 fill-[#e5b85c] text-[#e5b85c]" />
-                </div>
-                <div className="flex-1 h-2 bg-[#161925] rounded-full overflow-hidden border border-white/5">
-                  <div
-                    style={{ width: `${row.pct}%` }}
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      row.stars >= 4
-                        ? 'bg-gradient-to-r from-[#d4a037] to-[#f3cb77]'
-                        : row.stars === 3
-                        ? 'bg-blue-400'
-                        : 'bg-rose-500'
-                    }`}
-                  />
-                </div>
-                <span className="w-12 text-right font-mono text-[11px] text-gray-400">
-                  {row.pct}%
-                </span>
+            {totalReviews === 0 ? (
+              <div className="py-6 px-4 rounded-xl bg-black/20 border border-white/5 text-center">
+                <p className="text-xs text-zinc-400">Aucune évaluation n&apos;a encore été déposée.</p>
+                <p className="text-[11px] text-zinc-500 mt-1">Le baromètre se mettra à jour en direct dès les premiers retours.</p>
               </div>
-            ))}
+            ) : (
+              ratingDistribution.map((row) => (
+                <div key={row.stars} className="flex items-center gap-3 text-xs">
+                  <div className="flex items-center gap-1 w-12 text-gray-300 font-bold shrink-0">
+                    <span>{row.stars}</span>
+                    <Star className="w-3 h-3 fill-[#e5b85c] text-[#e5b85c]" />
+                  </div>
+                  <div className="flex-1 h-2 bg-[#161925] rounded-full overflow-hidden border border-white/5">
+                    <div
+                      style={{ width: `${row.pct}%` }}
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        row.stars >= 4
+                          ? 'bg-gradient-to-r from-[#d4a037] to-[#f3cb77]'
+                          : row.stars === 3
+                          ? 'bg-blue-400'
+                          : 'bg-rose-500'
+                      }`}
+                    />
+                  </div>
+                  <span className="w-12 text-right font-mono text-[11px] text-gray-400">
+                    {row.pct}%
+                  </span>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Points forts plébiscités */}
@@ -1080,27 +1237,14 @@ export default async function AdminDashboardPage() {
                   </span>
                 ))
               ) : (
-                [
-                  { tag: '🎶 Son & DJ set', count: 18 },
-                  { tag: '⚡ Ambiance survoltée', count: 16 },
-                  { tag: '🍹 Service Bar au top', count: 12 },
-                  { tag: '🚪 Entrée fluide', count: 11 },
-                  { tag: '✨ Carré VIP stylé', count: 9 },
-                ].map((item) => (
-                  <span
-                    key={item.tag}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#161927] border border-[#272d42] text-xs font-medium text-gray-300"
-                  >
-                    <span>{item.tag}</span>
-                    <span className="px-1.5 py-0.5 rounded-md bg-white/10 text-gray-400 font-bold text-[10px]">
-                      {item.count}
-                    </span>
-                  </span>
-                ))
+                <div className="w-full py-6 px-4 rounded-xl bg-black/20 border border-white/5 text-center">
+                  <p className="text-xs text-zinc-400">Aucun tag d&apos;ambiance recueilli pour le moment.</p>
+                  <p className="text-[11px] text-zinc-500 mt-1">Les clubbers sélectionnent les tags depuis leur pass après leur entrée.</p>
+                </div>
               )}
             </div>
             <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
-              💡 Les clubbers choisissent ces tags directement depuis leur pass dès que leur QR code est scanné ou après la soirée.
+              💡 Les clubbers choisissent ces tags directement depuis leur pass dès que leur QR code est validé à la porte.
             </p>
           </div>
         </div>
@@ -1121,7 +1265,7 @@ export default async function AdminDashboardPage() {
                   return (
                     <div
                       key={f.id}
-                      className="p-3.5 rounded-xl bg-[#141724] border border-[#23273a] text-xs space-y-2"
+                      className="p-3.5 rounded-xl bg-[#141724] border border-[#232738] text-xs space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1 text-[#e5b85c]">
@@ -1155,6 +1299,7 @@ export default async function AdminDashboardPage() {
       {/* 💰 SIMULATEUR DE RETOMBÉES BAR & VESTIAIRE (ROI RP) */}
       <BarRevenueSimulator
         entriesToday={entriesCountToday}
+        registrationsTonight={registrationsCountToday}
         entriesThisYear={entriesThisYear ?? 0}
         predictedEntriesTonight={predictedAvg}
         pastEvents={pastEventsComparison.map((e) => ({

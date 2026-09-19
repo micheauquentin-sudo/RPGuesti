@@ -92,8 +92,10 @@ export async function GET(request: Request) {
         status,
         registered_at,
         guest_id,
+        is_duo,
+        companion_name,
         event:events(id, name, event_date, status),
-        promoter:promoters(first_name, last_name)
+        promoter:promoters(first_name, last_name, pseudo)
       `)
       .in('guest_id', guestIds)
       .order('registered_at', { ascending: false })
@@ -125,7 +127,7 @@ export async function GET(request: Request) {
     const candidates = registrations.map((reg) => {
       const guest = matchingGuests.find((g) => g.id === reg.guest_id);
       const evObj = Array.isArray(reg.event) ? reg.event[0] : (reg.event as unknown as { id: string; name: string; event_date: string; status: string });
-      const pObj = Array.isArray(reg.promoter) ? reg.promoter[0] : (reg.promoter as unknown as { first_name: string; last_name: string });
+      const pObj = Array.isArray(reg.promoter) ? reg.promoter[0] : (reg.promoter as unknown as { first_name: string; last_name: string; pseudo?: string | null });
       const entry = entriesMap.get(reg.id);
 
       let computedStatus: 'VALID' | 'ALREADY_USED' | 'CANCELLED' = 'VALID';
@@ -135,16 +137,22 @@ export async function GET(request: Request) {
         computedStatus = 'CANCELLED';
       }
 
+      const promoterDisplay = pObj?.pseudo?.trim() 
+        ? pObj.pseudo.trim() 
+        : (pObj ? `${pObj.first_name} ${pObj.last_name}`.trim() : 'Club ASTRA');
+
       return {
         registration_id: reg.id,
         qr_token: reg.qr_token,
         guest_name: `${guest?.first_name || ''} ${guest?.last_name || ''}`.trim(),
         phone: guest?.phone || null,
-        promoter_name: pObj ? `${pObj.first_name} ${pObj.last_name}` : 'Club ASTRA',
+        promoter_name: promoterDisplay,
         event_name: evObj?.name || 'Soirée ASTRA',
         event_date: evObj?.event_date || '',
         status: computedStatus,
         scanned_at: entry?.scanned_at || null,
+        is_duo: Boolean(reg.is_duo || reg.companion_name),
+        companion_name: reg.companion_name || null,
       };
     });
 

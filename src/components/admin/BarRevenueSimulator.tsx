@@ -26,6 +26,7 @@ interface BarRevenueSimulatorProps {
   entriesThisYear: number;
   predictedEntriesTonight: number;
   pastEvents: PastEventItem[];
+  registrationsTonight?: number;
 }
 
 export default function BarRevenueSimulator({
@@ -33,6 +34,7 @@ export default function BarRevenueSimulator({
   entriesThisYear,
   predictedEntriesTonight,
   pastEvents,
+  registrationsTonight = 0,
 }: BarRevenueSimulatorProps) {
   // Paramètres personnalisables du panier moyen clubbing
   const [cloakroomPrice, setCloakroomPrice] = useState<number>(2.0); // 2,00 € vestiaire
@@ -52,8 +54,9 @@ export default function BarRevenueSimulator({
     setDrinkSpendPerGuest(drink);
   };
 
-  // Calculs financiers en direct
+  // Calculs financiers en direct : basés sur ce qui arrive (entrées réelles)
   const tonightRevenue = Math.round(entriesToday * totalBasket);
+  const potentialTonightRevenue = Math.round(registrationsTonight * totalBasket);
   const predictedTonightRevenue = Math.round(predictedEntriesTonight * totalBasket);
   const yearlyRevenue = Math.round(entriesThisYear * totalBasket);
 
@@ -172,42 +175,55 @@ export default function BarRevenueSimulator({
 
       {/* 3 Cartouches Chiffre d'Affaires Estimé */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Ce soir (en direct) */}
+        {/* Ce soir (en direct - basé sur ce qui arrive) */}
         <div className="p-5 rounded-2xl bg-gradient-to-br from-[#141724] to-[#0f111a] border border-[#24283b] relative overflow-hidden">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Encaissé Ce Soir (Scans Réels)
+              Encaissé Ce Soir (Arrivées Réelles)
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {entriesToday} scans
+              {entriesToday} entré{entriesToday > 1 ? 's' : ''}
             </span>
           </div>
           <div className="text-3xl font-black text-white tracking-tight">
             {formatEuro(tonightRevenue)}
           </div>
-          <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1">
-            <Receipt className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Vestiaire : {formatEuro(entriesToday * cloakroomPrice)} • Bar : {formatEuro(entriesToday * drinkSpendPerGuest)}</span>
-          </p>
+          <div className="text-[11px] text-gray-400 mt-2 flex flex-col gap-0.5">
+            <span className="flex items-center gap-1">
+              <Shirt className="w-3 h-3 text-blue-400" />
+              <span>Vestiaire ({cloakroomPrice.toFixed(2)}€) : <strong className="text-white">{formatEuro(entriesToday * cloakroomPrice)}</strong></span>
+            </span>
+            <span className="flex items-center gap-1">
+              <Wine className="w-3 h-3 text-rose-400" />
+              <span>Bar ({drinkSpendPerGuest.toFixed(2)}€) : <strong className="text-white">{formatEuro(entriesToday * drinkSpendPerGuest)}</strong></span>
+            </span>
+          </div>
         </div>
 
-        {/* Projection Soirée Complète */}
+        {/* Potentiel Global Soirée (sur tous les inscrits) */}
         <div className="p-5 rounded-2xl bg-gradient-to-br from-[#181c2b] to-[#10131f] border border-[#e5b85c]/30 relative overflow-hidden shadow-lg shadow-[#e5b85c]/5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-[#e5b85c] uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Projection Fin de Soirée</span>
+              <span>Potentiel Inscrits Soirée</span>
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-[#e5b85c]/15 text-[#e5b85c] border border-[#e5b85c]/30">
-              ~{predictedEntriesTonight} attendus
+              {registrationsTonight} pass réservé{registrationsTonight > 1 ? 's' : ''}
             </span>
           </div>
           <div className="text-3xl font-black text-[#e5b85c] tracking-tight">
-            {formatEuro(predictedTonightRevenue)}
+            {formatEuro(potentialTonightRevenue)}
           </div>
-          <p className="text-[11px] text-gray-300 mt-2">
-            Basé sur le taux de venue historique de l&apos;ASTRA (rush de nuit inclus).
-          </p>
+          <div className="text-[11px] text-gray-300 mt-2 flex flex-col gap-0.5">
+            <span className="flex items-center gap-1">
+              <Shirt className="w-3 h-3 text-blue-400" />
+              <span>Potentiel Vestiaire : <strong className="text-white">{formatEuro(registrationsTonight * cloakroomPrice)}</strong></span>
+            </span>
+            <span className="flex items-center gap-1">
+              <Wine className="w-3 h-3 text-rose-400" />
+              <span>Potentiel Bar : <strong className="text-white">{formatEuro(registrationsTonight * drinkSpendPerGuest)}</strong></span>
+            </span>
+          </div>
         </div>
 
         {/* Saison / Année Cumulée */}

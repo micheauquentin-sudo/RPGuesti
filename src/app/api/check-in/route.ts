@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       try {
         const { data: regInfo } = await supabaseAdmin
           .from('registrations')
-          .select('guest_id, companion_first_name')
+          .select('guest_id, is_duo, companion_name')
           .eq('qr_token', qrToken)
           .maybeSingle();
 
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
             .in('status', ['valid', 'VALID']);
 
           const visitsCount = count || 1;
-          const isDuo = Boolean(regInfo.companion_first_name);
+          const isDuo = Boolean(regInfo.is_duo || regInfo.companion_name);
 
           let badgeType: 'VIP_REGULAR' | 'NEW_CLUBBER' | 'DUO_AMBASSADOR' | 'REGULAR' = 'REGULAR';
           let badgeLabel = 'Clubber ASTRA';
